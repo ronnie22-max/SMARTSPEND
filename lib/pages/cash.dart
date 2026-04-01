@@ -2,7 +2,8 @@
 import 'package:flutter/services.dart';
 
 class CashPage extends StatefulWidget {
-  const CashPage({Key? key}) : super(key: key);
+  final Function(double)? onAddCash;
+  const CashPage({Key? key, this.onAddCash}) : super(key: key);
 
   @override
   State<CashPage> createState() => _CashPageState();
@@ -12,11 +13,28 @@ class _CashPageState extends State<CashPage> {
   final TextEditingController _amountController = TextEditingController();
 
   void _addCash(double amount) {
-    // TODO: Implement logic to add cash to user account
+    // Call the callback to update balance on home page
+    if (widget.onAddCash != null) {
+      widget.onAddCash!(amount);
+    }
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added UGX ${amount.toStringAsFixed(2)}')),
+      SnackBar(
+        content: Text('✓ Added UGX ${amount.toStringAsFixed(2)}'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 1),
+      ),
     );
-    Navigator.pop(context);
+    
+    // Clear the input field
+    _amountController.clear();
+    
+    // Navigate back to home after 1 second
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -94,12 +112,12 @@ class _CashPageState extends State<CashPage> {
               ),
               SizedBox(height: screenHeight * 0.02),
               GridView.count(
-                crossAxisCount: isSmallScreen ? 2 : 3,
+                crossAxisCount: 3,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: screenWidth * 0.04,
-                mainAxisSpacing: screenHeight * 0.02,
-                childAspectRatio: 1.2,
+                crossAxisSpacing: screenWidth * 0.03,
+                mainAxisSpacing: screenHeight * 0.015,
+                childAspectRatio: 1.5,
                 children: [
                   _buildPresetButton('5,000', 5000, isSmallScreen),
                   _buildPresetButton('10,000', 10000, isSmallScreen),
@@ -179,25 +197,41 @@ class _CashPageState extends State<CashPage> {
   }
 
   Widget _buildPresetButton(String label, double amount, bool isSmallScreen) {
-    return ElevatedButton(
+    return OutlinedButton(
       onPressed: () => _addCash(amount),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color.fromARGB(255, 238, 238, 238),
-        elevation: 0,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 10,
-          vertical: isSmallScreen ? 6 : 8,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(
+          color: Colors.black87,
+          width: 2,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(25),
         ),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: isSmallScreen ? 10 : 11,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
+      child: RichText(
+        text: TextSpan(
+          children: [
+            const TextSpan(
+              text: 'UGX ',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+            TextSpan(
+              text: label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
         ),
       ),
     );

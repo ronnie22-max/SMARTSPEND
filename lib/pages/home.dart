@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:smartspend/pages/cash.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -35,7 +36,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToCashPage() {
-    Navigator.pushNamed(context, '/cash');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CashPage(onAddCash: _addCash),
+      ),
+    );
   }
 
   void _cashOut(double amount) {
