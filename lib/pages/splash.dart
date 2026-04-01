@@ -57,7 +57,11 @@ class _SignUpPageState extends State<SignUpPage> {
       errorMessage = "";
     });
 
-    Navigator.pushNamed(context, "/home");
+    Navigator.pushReplacementNamed(
+      context,
+      '/home',
+      arguments: username,
+    );
   }
 
   @override

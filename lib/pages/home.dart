@@ -34,112 +34,8 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _showAddCashDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final TextEditingController customAmountController =
-            TextEditingController();
-        return AlertDialog(
-          title: const Text('Add Cash'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Select an amount or enter a custom amount:'),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 160,
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    children: [
-                      _buildAmountButton('5,000', 5000, dialogContext),
-                      _buildAmountButton('10,000', 10000, dialogContext),
-                      _buildAmountButton('25,000', 25000, dialogContext),
-                      _buildAmountButton('50,000', 50000, dialogContext),
-                    ],
-                  ),
-                ),
-
-
-
-
-
-                
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                const Text('Or enter a custom amount:'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: customAmountController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: 'Enter amount in UGX',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixText: 'UGX ',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (customAmountController.text.isNotEmpty) {
-                  final amount =
-                      double.tryParse(customAmountController.text) ?? 0;
-                  if (amount > 0) {
-                    _addCash(amount);
-                    Navigator.pop(dialogContext);
-                  } else {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      const SnackBar(content: Text('Please enter a valid amount')),
-                    );
-                  }
-                } else {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Please enter an amount')),
-                  );
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAmountButton(String label, double amount, BuildContext dialogContext) {
-    return ElevatedButton(
-      onPressed: () {
-        _addCash(amount);
-        Navigator.pop(dialogContext);
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
+  void _navigateToCashPage() {
+    Navigator.pushNamed(context, '/cash');
   }
 
   void _cashOut(double amount) {
@@ -156,21 +52,30 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final isSmallScreen = screenWidth < 600;
     
     return Scaffold(
       backgroundColor: Colors.white, 
       appBar: AppBar(
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
-        title: Text('SmartSpend '),
+        title: Text('SmartSpend',
+          style: TextStyle(
+            fontSize: isSmallScreen ? 18 : 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
          actions: [
             IconButton(
-               icon: Icon(Icons.search, color: const Color.fromARGB(255, 0, 0, 0),),
+               icon: const Icon(Icons.search, color: Color.fromARGB(255, 0, 0, 0)),
                onPressed: (){},
                ),
 
                IconButton(
-               icon: Icon(Icons.person, color: const Color.fromARGB(255, 0, 0, 0),),
+               icon: const Icon(Icons.person, color: Color.fromARGB(255, 0, 0, 0)),
                onPressed: (){
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/profile');
@@ -183,10 +88,17 @@ class _HomePageState extends State<HomePage> {
       
       
       body: SingleChildScrollView(
-        child: Column(
+        child: SizedBox(
+          width: screenWidth,
+          child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              margin: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04,
+                vertical: screenHeight * 0.02,
+              ),
+              padding: EdgeInsets.all(screenWidth * 0.05),
+              width: screenWidth * 0.92,
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 242, 241, 241),
                 borderRadius: BorderRadius.circular(24),
@@ -197,74 +109,79 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           "Cash Balance",
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
+                              fontSize: isSmallScreen ? 14 : 16, 
+                              fontWeight: FontWeight.w600),
                         ),
                         Row(
                           children: [
                             Text(
                               "Dear: ${widget.username}",
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: isSmallScreen ? 12 : 14,
+                              ),
                             ),
-                            Icon(Icons.chevron_right, size: 20),
+                            const Icon(Icons.chevron_right, size: 20),
                           ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenHeight * 0.01),
                     Text(
                       "UGX ${_cashBalance.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        fontSize: 40,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 32 : 40,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: screenHeight * 0.02),
                     Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () {
-                              _showAddCashDialog();
-                            },
+                            onTap: _navigateToCashPage,
                             child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: EdgeInsets.symmetric(
+                                vertical: screenHeight * 0.015
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.blue,
                                 borderRadius: BorderRadius.circular(30),
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Text(
                                   "Add Cash",
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
+                                    fontSize: isSmallScreen ? 12 : 14,
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: screenWidth * 0.03),
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
                               _cashOut(500);
                             },
                             child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: EdgeInsets.symmetric(
+                                vertical: screenHeight * 0.015
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green,
                                 borderRadius: BorderRadius.circular(30),
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Text(
                                   "Cash Out",
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
+                                    fontSize: isSmallScreen ? 12 : 14,
                                   ),
                                 ),
                               ),
@@ -276,62 +193,142 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: screenHeight * 0.02),
+              Text(
                 'Welcome to SmartSpend!',
-                style: TextStyle(fontSize: 20),
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 16 : 20,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: screenHeight * 0.02),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.04,
+                  vertical: screenHeight * 0.01,
+                ),
+                child: GridView.count(
+                  crossAxisCount: isSmallScreen ? 3 : 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: screenWidth * 0.02,
+                  mainAxisSpacing: screenHeight * 0.002,
+                  childAspectRatio: 0.85,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 300,
-                      children: [
-                        _buildAction(Icons.money, 'Send money'),
-                        _buildAction(Icons.save, 'save'),
-                        _buildAction(Icons.phone_android, 'Deposit'),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 300,
-                      children: [
-                        _buildAction(Icons.receipt_long, 'Bills'),
-                        _buildAction(Icons.pie_chart, 'Budget'),
-                        _buildAction(Icons.account_balance, 'Withdraw'),
-                      ],
-                    ),
+                    _buildAction(Icons.money, 'Send money'),
+                    _buildAction(Icons.save, 'save'),
+                    _buildAction(Icons.phone_android, 'Deposit'),
+                    _buildAction(Icons.receipt_long, 'Bills'),
+                    _buildAction(Icons.pie_chart, 'Budget'),
+                    _buildAction(Icons.account_balance, 'Withdraw'),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
-              CarouselSlider(
-                items: [
-                  Image.asset('images/tip1.png',
-                      fit: BoxFit.cover, width: double.infinity),
-                  Image.asset('images/tip2.png',
-                      fit: BoxFit.cover, width: double.infinity),
-                  Image.asset('images/tip3.png',
-                      fit: BoxFit.cover, width: double.infinity),
-                  Image.asset('images/tip4.png',
-                      fit: BoxFit.cover, width: double.infinity),
-                  Image.asset('images/tip5.png',
-                      fit: BoxFit.cover, width: double.infinity),
-                ],
-                options: CarouselOptions(
-                  height: 200,
-                  autoPlay: true,
-                  enlargeCenterPage: true,
-                  viewportFraction: 0.8,
+              const SizedBox(height: 3),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
+                child: Text(
+                  'Financial Tips',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              SizedBox(height: screenHeight * 0.008),
+              SizedBox(
+                height: 200,
+                width: screenWidth * 0.95,
+                child: CarouselSlider(
+                  items: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'images/tip1.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: Text('Image not found'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'images/tip2.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: Text('Image not found'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'images/tip3.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: Text('Image not found'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'images/tip4.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: Text('Image not found'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'images/tip5.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: Text('Image not found'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  options: CarouselOptions(
+                    height: 200,
+                    autoPlay: true,
+                    enlargeCenterPage: true,
+                    viewportFraction: 0.85,
+                  ),
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
             ],
           ),
+        ),
         ),
       
       
@@ -363,19 +360,34 @@ class _HomePageState extends State<HomePage> {
 }
 
 Widget _buildAction(IconData icon, String label) {
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 28, color: Colors.green),
-      ),
-      const SizedBox(height: 6),
-      Text(label, style: const TextStyle(fontSize: 12)),
-    ],
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final isSmallScreen = constraints.maxWidth < 600;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: isSmallScreen ? 24 : 28,
+              color: Colors.green,
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 4 : 6),
+          Text(
+            label,
+            style: TextStyle(fontSize: isSmallScreen ? 10 : 12),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    },
   );
 }

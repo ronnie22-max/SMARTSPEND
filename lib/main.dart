@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smartspend/pages/cash.dart';
 import 'package:smartspend/pages/login.dart';
 import 'package:smartspend/pages/transaction.dart';
 import 'package:smartspend/pages/profile.dart';
@@ -21,17 +22,23 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
        debugShowCheckedModeBanner: false,  
-      initialRoute: '/home',
+      initialRoute: '/splash',
       routes: {
         '/login': (context) => const LoginPage(),
-        '/home': (context) => HomePage(username: ''),
+        '/splash': (context) => const SignUpPage(),
         '/transactions': (context) => TransactionsPage(),
         '/profile': (context) => const ProfilePage(),
-        '/splash': (context) => const SignUpPage(),
         '/bills': (context) => billsPage(),
-        //'/budgets': (context) => BudgetPage(),
-
-        
+        '/cash': (context) => const CashPage(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/home') {
+          final username = settings.arguments as String? ?? '';
+          return MaterialPageRoute(
+            builder: (context) => HomePage(username: username),
+          );
+        }
+        return null;
       },
     );    
   }
