@@ -42,37 +42,6 @@ class _BudgetPageState extends State<BudgetPage> {
 
   double get totalBalance => widget.totalBalance;
 
-  void _addExpense(String category, double amount) {
-    final newTotal = totalExpenses + amount;
-
-    if (newTotal > totalBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Cannot add! Total would exceed UGX ${totalBalance.toStringAsFixed(2)}. Remaining: UGX ${remainingBalance.toStringAsFixed(2)}',
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      expenses[category] = expenses[category]! + amount;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '✓ Added UGX ${amount.toStringAsFixed(2)} to $category',
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
   void _editExpense(String category) {
     showDialog(
       context: context,

@@ -5,6 +5,7 @@ import 'package:smartspend/pages/transaction.dart';
 import 'package:smartspend/pages/profile.dart';
 import 'package:smartspend/pages/home.dart';
 import 'package:smartspend/pages/splash.dart';
+import 'package:smartspend/pages/signup.dart';
 import 'package:smartspend/pages/bills.dart';
 //import 'package:smartspend/pages/budget.dart';
 
@@ -22,8 +23,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
        debugShowCheckedModeBanner: false,  
-      initialRoute: '/home',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (context) => const SplashPage(),
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignUpPage(),
         '/transactions': (context) => TransactionsPage(),
