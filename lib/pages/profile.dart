@@ -16,7 +16,7 @@ class ProfilePage extends StatelessWidget {
             Navigator.pushNamed(context, '/home');
           },
         ),
-        title: Text('Profile'), 
+        title: Text('Profile'),
         backgroundColor: Colors.green,
         actions: [
           IconButton(
