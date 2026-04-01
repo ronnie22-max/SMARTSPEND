@@ -22,10 +22,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
        debugShowCheckedModeBanner: false,  
-      initialRoute: '/splash',
+      initialRoute: '/home',
       routes: {
         '/login': (context) => const LoginPage(),
-        '/splash': (context) => const SignUpPage(),
+        '/signup': (context) => const SignUpPage(),
         '/transactions': (context) => TransactionsPage(),
         '/profile': (context) => const ProfilePage(),
         '/bills': (context) => billsPage(),

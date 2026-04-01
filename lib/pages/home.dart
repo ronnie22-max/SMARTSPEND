@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smartspend/pages/cash.dart';
+import 'package:smartspend/pages/budget.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -40,6 +41,15 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(
         builder: (context) => CashPage(onAddCash: _addCash),
+      ),
+    );
+  }
+
+  void _navigateToBudget(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BudgetPage(totalBalance: _cashBalance),
       ),
     );
   }
@@ -221,16 +231,16 @@ class _HomePageState extends State<HomePage> {
                   mainAxisSpacing: screenHeight * 0.002,
                   childAspectRatio: 0.85,
                   children: [
-                    _buildAction(Icons.money, 'Send money'),
-                    _buildAction(Icons.save, 'save'),
-                    _buildAction(Icons.phone_android, 'Deposit'),
-                    _buildAction(Icons.receipt_long, 'Bills'),
-                    _buildAction(Icons.pie_chart, 'Budget'),
-                    _buildAction(Icons.account_balance, 'Withdraw'),
+                    _buildAction(Icons.money, 'Send money', null),
+                    _buildAction(Icons.save, 'save', null),
+                    _buildAction(Icons.phone_android, 'Deposit', null),
+                    _buildAction(Icons.receipt_long, 'Bills', null),
+                    _buildAction(Icons.pie_chart, 'Budget', () => _navigateToBudget(context)),
+                    _buildAction(Icons.account_balance, 'Withdraw', null),
                   ],
                 ),
               ),
-              const SizedBox(height: 3),
+                SizedBox(height: screenHeight * 0.02),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
                 child: Text(
@@ -365,34 +375,37 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Widget _buildAction(IconData icon, String label) {
+Widget _buildAction(IconData icon, String label, Function()? onTap) {
   return LayoutBuilder(
     builder: (context, constraints) {
       final isSmallScreen = constraints.maxWidth < 600;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
+      return GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                size: isSmallScreen ? 24 : 28,
+                color: Colors.green,
+              ),
             ),
-            child: Icon(
-              icon,
-              size: isSmallScreen ? 24 : 28,
-              color: Colors.green,
+            SizedBox(height: isSmallScreen ? 4 : 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: isSmallScreen ? 10 : 12),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          SizedBox(height: isSmallScreen ? 4 : 6),
-          Text(
-            label,
-            style: TextStyle(fontSize: isSmallScreen ? 10 : 12),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       );
     },
   );
