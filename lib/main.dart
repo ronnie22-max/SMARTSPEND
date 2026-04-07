@@ -31,6 +31,7 @@ class MyApp extends StatelessWidget {
         '/transactions': (context) => TransactionsPage(),
         '/profile': (context) => const ProfilePage(),
         '/bills': (context) => billsPage(),
+        
         '/cash': (context) => const CashPage(),
       },
       onGenerateRoute: (settings) {
