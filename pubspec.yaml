@@ -43,6 +43,9 @@ dependencies:
 
 dev_dependencies:
   flutter_native_splash: ^2.4.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_test:
+    sdk: flutter
 
 
   
@@ -58,6 +61,21 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "images/wallet_appicon.png"
+  web:
+    generate: true
+    image_path: "images/wallet_appicon.png"
+  windows:
+    generate: true
+    image_path: "images/wallet_appicon.png"
+  macos:
+    generate: true
+    image_path: "images/wallet_appicon.png"
+
 flutter:
 
   # The following line ensures that the Material Icons font is
