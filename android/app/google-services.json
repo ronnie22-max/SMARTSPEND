@@ -12,7 +12,12 @@
           "package_name": "com.example.smartspend"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "630625944745-1mk86r5vnikmmosauuh16oh07gfl9tv7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAp5DNfMXCumIVLqAlf8_Pq4DaTGmzRfgk"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "630625944745-1mk86r5vnikmmosauuh16oh07gfl9tv7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "630625944745-gd13c9it2liusembp35g8afmnc10lm2r.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.smartspend"
+              }
+            }
+          ]
         }
       }
     }

@@ -13,14 +13,30 @@ import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const MyApp());
+  final firebaseReady = await _initializeFirebaseSafely();
+  runApp(MyApp(firebaseReady: firebaseReady));
+}
+
+Future<bool> _initializeFirebaseSafely() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    return true;
+  } on UnsupportedError catch (e) {
+    debugPrint('Firebase is not configured for this platform: $e');
+    return false;
+  } catch (e, s) {
+    debugPrint('Firebase init failed: $e');
+    debugPrintStack(stackTrace: s);
+    return false;
+  }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool firebaseReady;
+
+  const MyApp({super.key, required this.firebaseReady});
 
   // This widget is the root of your application.
   @override
@@ -30,7 +46,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/splash',
       routes: {
         '/splash': (context) => const SplashPage(),
-        '/login': (context) => const LoginPage(),
+        '/login': (context) => LoginPage(firebaseReady: firebaseReady),
         '/signup': (context) => const SignUpPage(),
         '/transactions': (context) => TransactionsPage(),
         '/profile': (context) => const ProfilePage(),

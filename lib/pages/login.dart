@@ -1,8 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final bool firebaseReady;
+
+  const LoginPage({super.key, this.firebaseReady = true});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -71,6 +74,13 @@ class _LoginPageState extends State<LoginPage>
   }
 
   void validateLogin() async {
+    if (!widget.firebaseReady || Firebase.apps.isEmpty) {
+      setState(() {
+        errorMessage = 'Firebase is not configured for this platform yet.';
+      });
+      return;
+    }
+
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
 
