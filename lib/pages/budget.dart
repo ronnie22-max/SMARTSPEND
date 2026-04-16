@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 class BudgetPage extends StatefulWidget {
   final double totalBalance;
-  const BudgetPage({Key? key, this.totalBalance = 0.0}) : super(key: key);
+  const BudgetPage({super.key, this.totalBalance = 0.0});
 
   @override
   State<BudgetPage> createState() => _BudgetPageState();

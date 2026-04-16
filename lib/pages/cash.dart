@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 class CashPage extends StatefulWidget {
   final Function(double)? onAddCash;
-  const CashPage({Key? key, this.onAddCash}) : super(key: key);
+  const CashPage({super.key, this.onAddCash});
 
   @override
   State<CashPage> createState() => _CashPageState();

@@ -31,6 +31,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+    
 
 
 
@@ -39,6 +40,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   carousel_slider: 
   percent_indicator: ^4.2.2
+  firebase_core: ^4.6.0
+  firebase_auth: ^6.3.0
    
 
 dev_dependencies:

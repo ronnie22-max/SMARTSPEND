@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -83,23 +84,41 @@ class _LoginPageState extends State<LoginPage>
       errorMessage = "";
     });
 
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    String correctEmail = "ronnie@gmail.com";
-    String correctPassword = "123456";
-
-    if (email != correctEmail || password != correctPassword) {
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      final username = user?.displayName ?? user?.email ?? '';
+      setState(() => _isLoading = false);
+      if (mounted) Navigator.pushNamed(context, '/home', arguments: username);
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = "No account found with this email";
+          break;
+        case 'wrong-password':
+        case 'invalid-credential':
+          message = "Wrong email or password";
+          break;
+        case 'invalid-email':
+          message = "Invalid email address";
+          break;
+        case 'user-disabled':
+          message = "This account has been disabled";
+          break;
+        case 'too-many-requests':
+          message = "Too many attempts. Please try again later";
+          break;
+        default:
+          message = "Login failed. Please try again";
+      }
       setState(() {
-        errorMessage = "Wrong email or password";
+        errorMessage = message;
         _isLoading = false;
       });
-    } else {
-      setState(() {
-        errorMessage = "";
-        _isLoading = false;
-      });
-      if (mounted) Navigator.pushNamed(context, '/home');
     }
   }
 

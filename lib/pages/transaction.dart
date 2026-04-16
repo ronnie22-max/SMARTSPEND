@@ -109,7 +109,7 @@ Widget build(BuildContext context) {
 
                       ...entry.value.map((txn) {
                         return transactionItem(txn);
-                      }).toList(),
+                      }),
 
                       const SizedBox(height: 20),
                     ],

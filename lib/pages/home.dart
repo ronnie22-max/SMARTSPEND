@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smartspend/pages/cash.dart';
 import 'package:smartspend/pages/budget.dart';

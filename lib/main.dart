@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smartspend/firebase_options.dart';
 import 'package:smartspend/pages/cash.dart';
 import 'package:smartspend/pages/login.dart';
 import 'package:smartspend/pages/transaction.dart';
@@ -8,10 +9,13 @@ import 'package:smartspend/pages/splash.dart';
 import 'package:smartspend/pages/signup.dart';
 import 'package:smartspend/pages/bills.dart';
 //import 'package:smartspend/pages/budget.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-
-
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

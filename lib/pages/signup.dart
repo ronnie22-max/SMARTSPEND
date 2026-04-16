@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -116,18 +117,36 @@ class _SignUpPageState extends State<SignUpPage>
       errorMessage = "";
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      Navigator.pushReplacementNamed(
-        context,
-        '/home',
-        arguments: username,
-      );
+    try {
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      await credential.user?.updateDisplayName(username);
+      setState(() => _isLoading = false);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home', arguments: username);
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'email-already-in-use':
+          message = "An account already exists with this email";
+          break;
+        case 'invalid-email':
+          message = "Invalid email address";
+          break;
+        case 'weak-password':
+          message = "Password is too weak. Use at least 6 characters";
+          break;
+        case 'operation-not-allowed':
+          message = "Email/password sign-up is not enabled";
+          break;
+        default:
+          message = "Sign-up failed. Please try again";
+      }
+      setState(() {
+        errorMessage = message;
+        _isLoading = false;
+      });
     }
   }
 
