@@ -15,7 +15,7 @@ class _CashPageState extends State<CashPage> {
   final TextEditingController _amountController = TextEditingController();
   final TransactionManager _transactionManager = TransactionManager();
 
-  void _addCash(double amount) {
+  void _addCash(double amount)  {
     // Record deposit transaction
     final transaction = TransactionRecord(
       id: const Uuid().v4(),
