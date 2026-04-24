@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginPage extends StatefulWidget {
   final bool firebaseReady;
@@ -19,6 +22,7 @@ class _LoginPageState extends State<LoginPage>
   String errorMessage = "";
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   late AnimationController _headerController;
   late AnimationController _formController;
@@ -132,6 +136,81 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  Future<void> signInWithGoogle() async {
+    if (!widget.firebaseReady || Firebase.apps.isEmpty) {
+      setState(() {
+        errorMessage = 'Firebase is not configured for this platform yet.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isGoogleLoading = true;
+      errorMessage = '';
+    });
+
+    try {
+      UserCredential userCredential;
+
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        provider.setCustomParameters({'prompt': 'select_account'});
+        userCredential = await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email']);
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+        if (googleUser == null) {
+          setState(() {
+            _isGoogleLoading = false;
+          });
+          return;
+        }
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+      }
+
+      final user = userCredential.user;
+      final username = user?.displayName ?? user?.email ?? '';
+      setState(() {
+        _isGoogleLoading = false;
+      });
+      if (mounted) {
+        Navigator.pushNamed(context, '/home', arguments: username);
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          message = 'Account already exists with a different sign-in method';
+          break;
+        case 'popup-closed-by-user':
+          message = 'Google sign-in was canceled';
+          break;
+        default:
+          message = 'Google sign-in failed. Please try again';
+      }
+      setState(() {
+        errorMessage = message;
+        _isGoogleLoading = false;
+      });
+    } catch (_) {
+      setState(() {
+        errorMessage = 'Google sign-in failed. Please try again';
+        _isGoogleLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -170,7 +249,7 @@ class _LoginPageState extends State<LoginPage>
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
@@ -193,7 +272,7 @@ class _LoginPageState extends State<LoginPage>
                         Text(
                           'Sign in to continue managing your finances',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 16,
                           ),
                         ),
@@ -340,7 +419,10 @@ class _LoginPageState extends State<LoginPage>
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : validateLogin,
+                                onPressed:
+                                    (_isLoading || _isGoogleLoading)
+                                        ? null
+                                        : validateLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green.shade600,
                                   foregroundColor: Colors.white,
@@ -390,7 +472,68 @@ class _LoginPageState extends State<LoginPage>
                               ],
                             ),
 
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 20),
+
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: OutlinedButton(
+                                onPressed: (_isLoading || _isGoogleLoading)
+                                    ? null
+                                    : signInWithGoogle,
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1.5,
+                                  ),
+                                  backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: _isGoogleLoading
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          SvgPicture.asset(
+                                            'images/google_logo.svg',
+                                            width: 20,
+                                            height: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Continue with Google',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            Center(
+                              child: Text(
+                                'New to SmartSpend?',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
 
                             // Sign Up button
                             SizedBox(

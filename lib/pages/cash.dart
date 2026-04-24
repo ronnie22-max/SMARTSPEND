@@ -1,5 +1,7 @@
  import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:smartspend/models/transaction_model.dart';
+import 'package:uuid/uuid.dart';
 
 class CashPage extends StatefulWidget {
   final Function(double)? onAddCash;
@@ -11,8 +13,22 @@ class CashPage extends StatefulWidget {
 
 class _CashPageState extends State<CashPage> {
   final TextEditingController _amountController = TextEditingController();
+  final TransactionManager _transactionManager = TransactionManager();
 
   void _addCash(double amount) {
+    // Record deposit transaction
+    final transaction = TransactionRecord(
+      id: const Uuid().v4(),
+      title: 'Cash Deposit',
+      category: 'Deposit',
+      icon: Icons.arrow_downward,
+      timestamp: DateTime.now(),
+      amount: amount,
+      type: TransactionType.deposit,
+      description: 'Cash added to account',
+    );
+    _transactionManager.addTransaction(transaction);
+
     // Call the callback to update balance on home page
     if (widget.onAddCash != null) {
       widget.onAddCash!(amount);

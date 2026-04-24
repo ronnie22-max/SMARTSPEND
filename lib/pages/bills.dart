@@ -17,8 +17,8 @@ class Transaction {
   });
 }
 
-class billsPage extends StatelessWidget {
-  billsPage({super.key});
+class BillsPage extends StatelessWidget {
+  BillsPage({super.key});
 
   final List<Transaction> transactions = [];
 

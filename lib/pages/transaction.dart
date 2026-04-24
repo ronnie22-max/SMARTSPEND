@@ -1,42 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:smartspend/models/transaction_model.dart';
 
+class TransactionsPage extends StatefulWidget {
+  const TransactionsPage({super.key});
 
-class Transaction {
-  final String title;
-  final IconData icon;
-  final DateTime time;
-  final double amount;
-  final double? subAmount;
-
-  Transaction({
-    required this.title,
-    required this.icon,
-    required this.time,
-    required this.amount,
-    this.subAmount,
-  });
+  @override
+  State<TransactionsPage> createState() => _TransactionsPageState();
 }
 
-class TransactionsPage extends StatelessWidget {
-  TransactionsPage({super.key});
+class _TransactionsPageState extends State<TransactionsPage> {
+  final TransactionManager _transactionManager = TransactionManager();
+  late Map<String, List<TransactionRecord>> _groupedTransactions;
 
-  final List<Transaction> transactions = [];
-
-Map<String, List<Transaction>> groupTransactions(List<Transaction> txns) {
-  final Map<String, List<Transaction>> grouped = {};
-  for (var txn in txns) {
-    final date = "${txn.time.year}-${txn.time.month}-${txn.time.day}";
-    grouped.putIfAbsent(date, () => []).add(txn);
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
   }
-  return grouped;
-}
 
-@override
-Widget build(BuildContext context) {
-  // Group the transactions using your dynamic logic
-  final groupedTransactions = groupTransactions(transactions);
+  Future<void> _loadTransactions() async {
+    await _transactionManager.loadTransactions();
+    _updateTransactions();
+  }
 
-  return Scaffold(
+  void _updateTransactions() {
+    setState(() {
+      _groupedTransactions = _transactionManager.getTransactionsByDate();
+    });
+  }
+
+  void _clearAllTransactions() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Clear All Transactions?'),
+          content: const Text('This will delete all transactions. This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                _transactionManager.clearTransactions();
+                _updateTransactions();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All transactions cleared'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+              child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
     backgroundColor: Colors.green[300],
     body: SafeArea(
       child: Padding(
@@ -45,18 +73,29 @@ Widget build(BuildContext context) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 0, 0, 0)),
-                  onPressed: () {
-                     Navigator.pop(context);
-                    Navigator.pushNamed(context,'/home');
-                  },
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 0, 0, 0)),
+                      onPressed: () {
+                         Navigator.pop(context);
+                        Navigator.pushNamed(context,'/home');
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    const Text("Transactions",
+                        style:
+                            TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                const Text("Transactions",
-                    style:
-                        TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                if (_groupedTransactions.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                    tooltip: 'Clear all transactions',
+                    onPressed: _clearAllTransactions,
+                  ),
               ],
             ),
 
@@ -95,69 +134,122 @@ Widget build(BuildContext context) {
             const SizedBox(height: 25),
             
             Expanded(
-              child: ListView(
-                children: groupedTransactions.entries.map((entry) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.key,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+              child: _groupedTransactions.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No transactions yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
-                      const SizedBox(height: 10),
-
-                      ...entry.value.map((txn) {
-                        return transactionItem(txn);
-                      }),
-
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    )
+                  : ListView(
+                      children: _groupedTransactions.entries.map((entry) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.key,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 10),
+                            ...entry.value.map((txn) {
+                              return _transactionItem(txn);
+                            }),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }).toList(),
+                    ),
             ),
           ],
         ),
       ),
     ),
-  );
-}
+    );
+  }
 
-  /// Reusable UI Widget
-  Widget transactionItem(Transaction txn) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.green,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.grey[200],
-          child: Icon(txn.icon, color: Colors.black),
+  Widget _transactionItem(TransactionRecord txn) {
+    return Dismissible(
+      key: Key(txn.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(14),
         ),
-        title: Text(txn.title,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle:
-            Text("${txn.time.hour}:${txn.time.minute.toString().padLeft(2, '0')}"),
-        trailing: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              "${txn.amount > 0 ? '+' : ''}${txn.amount}",
-              style: TextStyle(
-                color: txn.amount > 0 ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (txn.subAmount != null)
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) {
+        _transactionManager.removeTransaction(txn.id);
+        _updateTransactions();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaction deleted'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: txn.typeColor.withValues(alpha: 0.2),
+            child: Icon(txn.icon, color: txn.typeColor),
+          ),
+          title: Text(
+            txn.title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                "${txn.subAmount! > 0 ? '+' : ''}${txn.subAmount}",
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                txn.formattedTime,
+                style: TextStyle(color: Colors.grey.shade600),
               ),
-          ],
+              if (txn.description != null)
+                Text(
+                  txn.description!,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+          trailing: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "${txn.type == TransactionType.income || txn.type == TransactionType.deposit ? '+' : '-'}UGX ${txn.amount.toStringAsFixed(2)}",
+                style: TextStyle(
+                  color: txn.typeColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                txn.typeLabel,
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smartspend/models/transaction_model.dart';
+import 'package:uuid/uuid.dart';
 
 class BudgetPage extends StatefulWidget {
   final double totalBalance;
@@ -18,6 +22,51 @@ class _BudgetPageState extends State<BudgetPage> {
     'Rent': 0.0,
     'Personal': 0.0,
   };
+
+  final TransactionManager _transactionManager = TransactionManager();
+  static const String _budgetKey = 'smartspend_budget';
+  static const String _cashBalanceKey = 'smartspend_cash_balance';
+  double _currentCashBalance = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBudgetAndCash();
+  }
+
+  Future<void> _loadBudgetAndCash() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Keep in sync with Home cash balance.
+      _currentCashBalance = prefs.getDouble(_cashBalanceKey) ?? widget.totalBalance;
+
+      final budgetJson = prefs.getString(_budgetKey);
+      if (budgetJson != null) {
+        final Map<String, dynamic> decoded =
+            Map<String, dynamic>.from(jsonDecode(budgetJson));
+        setState(() {
+          expenses.forEach((key, value) {
+            expenses[key] = (decoded[key] as num?)?.toDouble() ?? 0.0;
+          });
+        });
+      } else {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error loading budget: $e');
+    }
+  }
+
+  Future<void> _saveBudgetAndCash() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_budgetKey, jsonEncode(expenses));
+      await prefs.setDouble(_cashBalanceKey, _currentCashBalance);
+    } catch (e) {
+      debugPrint('Error saving budget: $e');
+    }
+  }
 
   final Map<String, Color> categoryColors = {
     'Food': Colors.orange,
@@ -40,13 +89,14 @@ class _BudgetPageState extends State<BudgetPage> {
   double get totalExpenses => expenses.values.fold(0, (sum, val) => sum + val);
   double get remainingBalance => totalBalance - totalExpenses;
 
-  double get totalBalance => widget.totalBalance;
+  double get totalBalance => _currentCashBalance + totalExpenses;
 
   void _editExpense(String category) {
     showDialog(
       context: context,
       builder: (context) {
         final controller = TextEditingController();
+        final previousAmount = expenses[category]!;
         return AlertDialog(
           title: Text('Edit $category'),
           content: TextField(
@@ -69,22 +119,39 @@ class _BudgetPageState extends State<BudgetPage> {
               onPressed: () {
                 final amount = double.tryParse(controller.text) ?? 0;
                 if (amount > 0) {
-                  final difference = amount - expenses[category]!;
-                  if (difference > remainingBalance) {
+                  final difference = amount - previousAmount;
+                  if (difference > _currentCashBalance) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Amount exceeds available budget. Remaining: UGX ${remainingBalance.toStringAsFixed(2)}',
+                          'Amount exceeds available cash. Remaining: UGX ${_currentCashBalance.toStringAsFixed(2)}',
                         ),
                         backgroundColor: Colors.red,
                       ),
                     );
                     return;
                   }
+
+                  // Record budget spending transaction
+                  final transaction = TransactionRecord(
+                    id: const Uuid().v4(),
+                    title: 'Budget Spending',
+                    category: category,
+                    icon: categoryIcons[category]!,
+                    timestamp: DateTime.now(),
+                    amount: amount,
+                    type: TransactionType.budgetSpend,
+                    description: 'Allocated to $category budget',
+                    budgetRemaining: remainingBalance - difference,
+                  );
+                  _transactionManager.addTransaction(transaction);
+
                   setState(() {
                     expenses[category] = amount;
+                    _currentCashBalance -= difference;
                   });
+                  _saveBudgetAndCash();
                   Navigator.pop(context);
                 }
               },
@@ -135,7 +202,7 @@ class _BudgetPageState extends State<BudgetPage> {
                 width: double.infinity,
                 padding: EdgeInsets.all(screenWidth * 0.04),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.blue, width: 2),
                 ),
@@ -169,7 +236,7 @@ class _BudgetPageState extends State<BudgetPage> {
                     child: Container(
                       padding: EdgeInsets.all(screenWidth * 0.04),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -199,7 +266,7 @@ class _BudgetPageState extends State<BudgetPage> {
                     child: Container(
                       padding: EdgeInsets.all(screenWidth * 0.04),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -256,7 +323,7 @@ class _BudgetPageState extends State<BudgetPage> {
                         padding: EdgeInsets.all(screenWidth * 0.04),
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: categoryColors[category]!.withOpacity(0.3),
+                            color: categoryColors[category]!.withValues(alpha: 0.3),
                             width: 2,
                           ),
                           borderRadius: BorderRadius.circular(12),
@@ -273,7 +340,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
                                         color: categoryColors[category]!
-                                            .withOpacity(0.2),
+                                            .withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
@@ -309,7 +376,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                 value: percentage / 100,
                                 minHeight: 6,
                                 backgroundColor:
-                                    categoryColors[category]!.withOpacity(0.1),
+                                    categoryColors[category]!.withValues(alpha: 0.1),
                                 valueColor: AlwaysStoppedAnimation(
                                   categoryColors[category],
                                 ),

@@ -215,7 +215,7 @@ class _SignUpPageState extends State<SignUpPage>
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -239,7 +239,7 @@ class _SignUpPageState extends State<SignUpPage>
                         Text(
                           'Register to start using SmartSpend',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 16,
                           ),
                         ),

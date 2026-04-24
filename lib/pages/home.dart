@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartspend/pages/cash.dart';
 import 'package:smartspend/pages/budget.dart';
+import 'package:smartspend/models/transaction_model.dart';
+import 'package:uuid/uuid.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -14,25 +17,47 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   double _cashBalance = 0.0;
+  final TransactionManager _transactionManager = TransactionManager();
+  static const String _cashBalanceKey = 'smartspend_cash_balance';
 
   @override
   void initState() {
     super.initState();
-    _updateCashBalance();
+    _loadData();
   }
 
-  void _updateCashBalance() {
-    // Automatically fetch and update cash balance
-    // Replace with actual data fetching logic from backend or local storage
-    setState(() {
-      _cashBalance = 0.0; // Update with real data
-    });
+  Future<void> _loadData() async {
+    // Load persisted cash balance
+    await _loadCashBalance();
+    // Load persisted transactions
+    await _transactionManager.loadTransactions();
+  }
+
+  Future<void> _loadCashBalance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _cashBalance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
+      });
+    } catch (e) {
+      debugPrint('Error loading cash balance: $e');
+    }
+  }
+
+  Future<void> _saveCashBalance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_cashBalanceKey, _cashBalance);
+    } catch (e) {
+      debugPrint('Error saving cash balance: $e');
+    }
   }
 
   void _addCash(double amount) {
     setState(() {
       _cashBalance += amount;
     });
+    _saveCashBalance();
   }
 
   void _navigateToCashPage() {
@@ -44,25 +69,48 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _navigateToBudget(BuildContext context) {
-    Navigator.push(
+  Future<void> _navigateToBudget(BuildContext context) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => BudgetPage(totalBalance: _cashBalance),
       ),
     );
+    await _loadCashBalance();
   }
 
   void _cashOut(double amount) {
-    setState(() {
-      if (_cashBalance >= amount) {
+    if (_cashBalance >= amount) {
+      // Record withdrawal transaction
+      final transaction = TransactionRecord(
+        id: const Uuid().v4(),
+        title: 'Cash Withdrawal',
+        category: 'Withdrawal',
+        icon: Icons.arrow_upward,
+        timestamp: DateTime.now(),
+        amount: amount,
+        type: TransactionType.withdrawal,
+        description: 'Cash withdrawn from account',
+      );
+      _transactionManager.addTransaction(transaction);
+
+      setState(() {
         _cashBalance -= amount;
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Insufficient balance')),
-        );
-      }
-    });
+      });
+      _saveCashBalance();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Withdrawn UGX ${amount.toStringAsFixed(2)}'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Insufficient balance')),
+      );
+    }
   }
 
   @override
@@ -386,7 +434,7 @@ Widget _buildAction(IconData icon, String label, Function()? onTap) {
             Container(
               padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.12),
+                color: Colors.green.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
