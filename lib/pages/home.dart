@@ -120,10 +120,9 @@ class _HomePageState extends State<HomePage> {
     final screenHeight = screenSize.height;
     final isSmallScreen = screenWidth < 600;
     
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white, 
       appBar: AppBar(
-        backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
         title: Text('SmartSpend',
           style: TextStyle(
@@ -133,12 +132,12 @@ class _HomePageState extends State<HomePage> {
         ),
          actions: [
             IconButton(
-               icon: const Icon(Icons.search, color: Color.fromARGB(255, 0, 0, 0)),
+               icon: const Icon(Icons.search),
                onPressed: (){},
                ),
 
                IconButton(
-               icon: const Icon(Icons.person, color: Color.fromARGB(255, 0, 0, 0)),
+               icon: const Icon(Icons.person),
                onPressed: (){
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/profile');
@@ -163,7 +162,7 @@ class _HomePageState extends State<HomePage> {
               padding: EdgeInsets.all(screenWidth * 0.05),
               width: screenWidth * 0.92,
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 242, 241, 241),
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(24),
               ),
                 child: Column(
@@ -398,7 +397,6 @@ class _HomePageState extends State<HomePage> {
       
 
       bottomNavigationBar: NavigationBar(
-         backgroundColor: Colors.white, 
         destinations: [
           NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.email), label: 'Transactions'),

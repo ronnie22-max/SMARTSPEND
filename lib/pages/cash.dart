@@ -61,20 +61,17 @@ class _CashPageState extends State<CashPage> {
     final isSmallScreen = screenWidth < 600;
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
           'Add Cash',
           style: TextStyle(
             fontSize: isSmallScreen ? 18 : 22,
-            color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -213,11 +210,12 @@ class _CashPageState extends State<CashPage> {
   }
 
   Widget _buildPresetButton(String label, double amount, bool isSmallScreen) {
+    final colorScheme = Theme.of(context).colorScheme;
     return OutlinedButton(
       onPressed: () => _addCash(amount),
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(
-          color: Colors.black87,
+        side: BorderSide(
+          color: colorScheme.outline,
           width: 2,
         ),
         padding: const EdgeInsets.symmetric(
@@ -236,15 +234,15 @@ class _CashPageState extends State<CashPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.red,
+                color: Colors.green,
               ),
             ),
             TextSpan(
               text: label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
               ),
             ),
           ],

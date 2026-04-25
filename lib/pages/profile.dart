@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smartspend/main.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
+
+  Future<void> _toggleDarkMode(bool value) async {
+    themeModeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', value);
+  }
 
   Future<void> _confirmAndLogout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
@@ -39,17 +47,17 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Color.fromARGB(255, 0, 0, 0)),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
             Navigator.pushNamed(context, '/home');
           },
         ),
-        title: Text('Profile'),
+        title: const Text('Profile'),
         backgroundColor: Colors.green,
         actions: [
           IconButton(
-            icon: Icon(Icons.share, color: Color.fromARGB(255, 0, 0, 0)),
+            icon: const Icon(Icons.share),
             onPressed: () {},
           ),
         ],
@@ -73,6 +81,20 @@ class ProfilePage extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
+            ),
+            ValueListenableBuilder<ThemeMode>(
+              valueListenable: themeModeNotifier,
+              builder: (context, themeMode, _) {
+                final isDark = themeMode == ThemeMode.dark;
+                return SwitchListTile(
+                  secondary: Icon(
+                    isDark ? Icons.dark_mode : Icons.light_mode,
+                  ),
+                  title: const Text('Dark Mode'),
+                  value: isDark,
+                  onChanged: _toggleDarkMode,
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.help),
