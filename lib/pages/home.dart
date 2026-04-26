@@ -19,6 +19,14 @@ class _HomePageState extends State<HomePage> {
   double _cashBalance = 0.0;
   final TransactionManager _transactionManager = TransactionManager();
   static const String _cashBalanceKey = 'smartspend_cash_balance';
+  int _currentTipIndex = 0;
+  final List<String> _tipImages = const [
+    'images/tip1.png',
+    'images/tip2.png',
+    'images/tip3.png',
+    'images/tip4.png',
+    'images/tip5.png',
+  ];
 
   @override
   void initState() {
@@ -119,6 +127,11 @@ class _HomePageState extends State<HomePage> {
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     final isSmallScreen = screenWidth < 600;
+    final contentWidth = screenWidth * 0.90;
+    final displayName = widget.username.trim().isEmpty
+        ? 'Guest User'
+        : widget.username.trim();
+    final avatarInitial = displayName.substring(0, 1).toUpperCase();
     
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -156,11 +169,11 @@ class _HomePageState extends State<HomePage> {
           children: [
             Container(
               margin: EdgeInsets.symmetric(
-                horizontal: screenWidth * 0.04,
+                horizontal: screenWidth * 0.05,
                 vertical: screenHeight * 0.02,
               ),
-              padding: EdgeInsets.all(screenWidth * 0.05),
-              width: screenWidth * 0.92,
+              padding: EdgeInsets.all(contentWidth * 0.05),
+              width: contentWidth,
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(24),
@@ -171,31 +184,85 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          "Cash Balance",
-                          style: TextStyle(
-                              fontSize: isSmallScreen ? 14 : 16, 
-                              fontWeight: FontWeight.w600),
+                        Expanded(
+                          child: Text(
+                            "Cash Balance",
+                            style: TextStyle(
+                                fontSize: isSmallScreen ? 14 : 16,
+                                fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        Row(
-                          children: [
-                            Text(
-                              "Dear: ${widget.username}",
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 12 : 14,
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, '/profile');
+                              },
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: isSmallScreen ? 15 : 17,
+                                    backgroundColor: Colors.green.withValues(alpha: 0.2),
+                                    child: Text(
+                                      avatarInitial,
+                                      style: TextStyle(
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isSmallScreen ? 12 : 13,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: screenWidth * 0.015),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: isSmallScreen
+                                          ? screenWidth * 0.28
+                                          : screenWidth * 0.22,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Welcome back',
+                                          style: TextStyle(
+                                            fontSize: isSmallScreen ? 10 : 11,
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          displayName,
+                                          style: TextStyle(
+                                            fontSize: isSmallScreen ? 12 : 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right, size: 20),
+                                ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right, size: 20),
-                          ],
+                          ),
                         ),
                       ],
                     ),
                     SizedBox(height: screenHeight * 0.01),
-                    Text(
-                      "UGX ${_cashBalance.toStringAsFixed(2)}",
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 32 : 40,
-                        fontWeight: FontWeight.bold,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "UGX ${_cashBalance.toStringAsFixed(2)}",
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 32 : 40,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.02),
@@ -224,7 +291,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                         ),
-                        SizedBox(width: screenWidth * 0.03),
+                        SizedBox(width: contentWidth * 0.03),
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
@@ -266,16 +333,16 @@ class _HomePageState extends State<HomePage> {
               SizedBox(height: screenHeight * 0.02),
               Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.04,
+                  horizontal: screenWidth * 0.05,
                   vertical: screenHeight * 0.01,
                 ),
                 child: GridView.count(
                   crossAxisCount: isSmallScreen ? 3 : 3,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: screenWidth * 0.02,
+                  crossAxisSpacing: contentWidth * 0.02,
                   mainAxisSpacing: screenHeight * 0.002,
-                  childAspectRatio: 0.85,
+                  childAspectRatio: isSmallScreen ? 0.85 : 2.6,
                   children: [
                     _buildAction(Icons.money, 'Send money', null),
                     _buildAction(Icons.save, 'save', null),
@@ -299,91 +366,54 @@ class _HomePageState extends State<HomePage> {
               ),
               SizedBox(height: screenHeight * 0.008),
               SizedBox(
-                height: 200,
-                width: screenWidth * 0.95,
-                child: CarouselSlider(
-                  items: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'images/tip1.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Text('Image not found'),
-                            ),
-                          );
-                        },
+                height: 320,
+                width: contentWidth,
+                child: CarouselSlider.builder(
+                  itemCount: _tipImages.length,
+                  itemBuilder: (context, index, realIndex) {
+                    final isCenter = index == _currentTipIndex;
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      margin: EdgeInsets.symmetric(
+                        vertical: isCenter ? 8 : 22,
+                        horizontal: 4,
                       ),
-                    ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'images/tip2.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Text('Image not found'),
-                            ),
-                          );
-                        },
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 300),
+                        opacity: isCenter ? 1 : 0.72,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.asset(
+                            _tipImages[index],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: Text('Image not found'),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'images/tip3.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Text('Image not found'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'images/tip4.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Text('Image not found'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'images/tip5.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Text('Image not found'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                   options: CarouselOptions(
-                    height: 200,
+                    height: 320,
                     autoPlay: true,
+                    autoPlayInterval: const Duration(seconds: 3),
                     enlargeCenterPage: true,
-                    viewportFraction: 0.85,
+                    enlargeFactor: 0.28,
+                    viewportFraction: 0.68,
+                    onPageChanged: (index, reason) {
+                      setState(() {
+                        _currentTipIndex = index;
+                      });
+                    },
                   ),
                 ),
               ),

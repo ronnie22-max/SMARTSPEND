@@ -136,6 +136,96 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  Future<void> _handleForgotPassword() async {
+    if (!widget.firebaseReady || Firebase.apps.isEmpty) {
+      setState(() {
+        errorMessage = 'Firebase is not configured for this platform yet.';
+      });
+      return;
+    }
+
+    final enteredEmail = await _showResetEmailDialog();
+    if (enteredEmail == null) {
+      return;
+    }
+
+    final email = enteredEmail.trim();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      setState(() {
+        errorMessage = 'Please enter a valid email address';
+      });
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Password reset email sent to $email'),
+          backgroundColor: Colors.green.shade600,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'Invalid email address';
+          break;
+        case 'user-not-found':
+          message = 'No account found with this email';
+          break;
+        case 'too-many-requests':
+          message = 'Too many requests. Try again later';
+          break;
+        default:
+          message = 'Unable to send reset email. Please try again';
+      }
+
+      setState(() {
+        errorMessage = message;
+      });
+    }
+  }
+
+  Future<String?> _showResetEmailDialog() async {
+    final resetController = TextEditingController(text: emailController.text);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: TextField(
+            controller: resetController,
+            keyboardType: TextInputType.emailAddress,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Email Address',
+              hintText: 'Enter your account email',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, resetController.text),
+              child: const Text('Send Link'),
+            ),
+          ],
+        );
+      },
+    );
+
+    resetController.dispose();
+    return result;
+  }
+
   Future<void> signInWithGoogle() async {
     if (!widget.firebaseReady || Firebase.apps.isEmpty) {
       setState(() {
@@ -374,7 +464,7 @@ class _LoginPageState extends State<LoginPage>
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () {},
+                                onPressed: _handleForgotPassword,
                                 child: Text(
                                   'Forgot Password?',
                                   style: TextStyle(
