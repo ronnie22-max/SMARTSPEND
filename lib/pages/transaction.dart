@@ -10,7 +10,7 @@ class TransactionsPage extends StatefulWidget {
 
 class _TransactionsPageState extends State<TransactionsPage> {
   final TransactionManager _transactionManager = TransactionManager();
-  late Map<String, List<TransactionRecord>> _groupedTransactions;
+  Map<String, List<TransactionRecord>> _groupedTransactions = {};
 
   @override
   void initState() {
@@ -80,8 +80,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     IconButton(
                       icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 0, 0, 0)),
                       onPressed: () {
-                         Navigator.pop(context);
-                        Navigator.pushNamed(context,'/home');
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/home');
                       },
                     ),
                     const SizedBox(width: 12),

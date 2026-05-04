@@ -44,9 +44,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadCashBalance() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _cashBalance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
-      });
+      final balance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
+      if (mounted) {
+        setState(() {
+          _cashBalance = balance;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading cash balance: $e');
     }
@@ -68,13 +71,15 @@ class _HomePageState extends State<HomePage> {
     _saveCashBalance();
   }
 
-  void _navigateToCashPage() {
-    Navigator.push(
+  Future<void> _navigateToCashPage() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CashPage(onAddCash: _addCash),
       ),
     );
+    await _loadCashBalance();
+    await _transactionManager.loadTransactions();
   }
 
   Future<void> _navigateToBudget(BuildContext context) async {
@@ -85,6 +90,12 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     await _loadCashBalance();
+  }
+
+  Future<void> _navigateToBills() async {
+    await Navigator.pushNamed(context, '/bills');
+    await _loadCashBalance();
+    await _transactionManager.loadTransactions();
   }
 
   void _cashOut(double amount) {
@@ -121,6 +132,71 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _openMoreOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text(
+                  'More Options',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long),
+                title: const Text('Pay Bills'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _navigateToBills();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.pie_chart_outline),
+                title: const Text('Budget Planner'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _navigateToBudget(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.swap_horiz),
+                title: const Text('Transaction History'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.pushNamed(context, '/transactions');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: const Text('Profile & Settings'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.pushNamed(context, '/profile');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.help_outline),
+                title: const Text('Help & Support'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Support coming soon')),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -128,9 +204,7 @@ class _HomePageState extends State<HomePage> {
     final screenHeight = screenSize.height;
     final isSmallScreen = screenWidth < 600;
     final contentWidth = screenWidth * 0.90;
-    final displayName = widget.username.trim().isEmpty
-        ? 'Guest User'
-        : widget.username.trim();
+    final displayName = widget.username.trim().isEmpty ? 'Guest User' : widget.username.trim();
     final avatarInitial = displayName.substring(0, 1).toUpperCase();
     
     final colorScheme = Theme.of(context).colorScheme;
@@ -152,7 +226,6 @@ class _HomePageState extends State<HomePage> {
                IconButton(
                icon: const Icon(Icons.person),
                onPressed: (){
-                  Navigator.pop(context);
                   Navigator.pushNamed(context, '/profile');
                },
                ),
@@ -347,7 +420,11 @@ class _HomePageState extends State<HomePage> {
                     _buildAction(Icons.money, 'Send money', null),
                     _buildAction(Icons.save, 'save', null),
                     _buildAction(Icons.phone_android, 'Deposit', null),
-                    _buildAction(Icons.receipt_long, 'Bills', null),
+                    _buildAction(
+                      Icons.receipt_long,
+                      'Bills',
+                      _navigateToBills,
+                    ),
                     _buildAction(Icons.pie_chart, 'Budget', () => _navigateToBudget(context)),
                     _buildAction(Icons.account_balance, 'Withdraw', null),
                   ],
@@ -435,12 +512,10 @@ class _HomePageState extends State<HomePage> {
         ],
         onDestinationSelected: (index) {
           if (index == 1) {
-            Navigator.pop(context);
             Navigator.pushNamed(context, '/transactions');
-          } 
-          else if 
-          (index == 3) {
-            Navigator.pop(context);
+          } else if (index == 2) {
+            _openMoreOptions();
+          } else if (index == 3) {
             Navigator.pushNamed(context, '/profile');
           }
           

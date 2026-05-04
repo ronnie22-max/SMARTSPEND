@@ -37,16 +37,19 @@ class _BudgetPageState extends State<BudgetPage> {
   Future<void> _loadBudgetAndCash() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final cachedBalance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
+      _currentCashBalance = widget.totalBalance > 0 ? widget.totalBalance : cachedBalance;
 
-      // Keep in sync with Home cash balance.
-      _currentCashBalance = prefs.getDouble(_cashBalanceKey) ?? widget.totalBalance;
+      if (widget.totalBalance > 0 && widget.totalBalance != cachedBalance) {
+        await prefs.setDouble(_cashBalanceKey, widget.totalBalance);
+      }
 
       final budgetJson = prefs.getString(_budgetKey);
       if (budgetJson != null) {
         final Map<String, dynamic> decoded =
             Map<String, dynamic>.from(jsonDecode(budgetJson));
         setState(() {
-          expenses.forEach((key, value) {
+          expenses.forEach((key, _) {
             expenses[key] = (decoded[key] as num?)?.toDouble() ?? 0.0;
           });
         });

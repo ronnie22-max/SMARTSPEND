@@ -156,14 +156,14 @@ class TransactionManager {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = prefs.getStringList(_storageKey) ?? [];
-      _transactions.clear();
-      for (final jsonStr in jsonList) {
-        final json = jsonDecode(jsonStr);
-        _transactions.add(TransactionRecord.fromJson(json));
-      }
+      final loaded = jsonList
+          .map((jsonStr) => TransactionRecord.fromJson(jsonDecode(jsonStr)))
+          .toList();
+      _transactions
+        ..clear()
+        ..addAll(loaded);
     } catch (e) {
       debugPrint('Error loading transactions: $e');
-      _transactions.clear();
     }
   }
 }

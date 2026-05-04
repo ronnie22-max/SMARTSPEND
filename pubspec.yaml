@@ -46,6 +46,7 @@ dependencies:
   flutter_svg: ^2.2.1
   uuid: ^4.0.0
   shared_preferences: ^2.2.2
+  cloud_firestore: ^6.3.0
    
 
 dev_dependencies:

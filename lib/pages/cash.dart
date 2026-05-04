@@ -15,7 +15,7 @@ class _CashPageState extends State<CashPage> {
   final TextEditingController _amountController = TextEditingController();
   final TransactionManager _transactionManager = TransactionManager();
 
-  void _addCash(double amount)  {
+  void _addCash(double amount) {
     // Record deposit transaction
     final transaction = TransactionRecord(
       id: const Uuid().v4(),
@@ -212,7 +212,7 @@ class _CashPageState extends State<CashPage> {
   Widget _buildPresetButton(String label, double amount, bool isSmallScreen) {
     final colorScheme = Theme.of(context).colorScheme;
     return OutlinedButton(
-      onPressed: () => _addCash(amount),
+      onPressed: () async => _addCash(amount),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
           color: colorScheme.outline,
