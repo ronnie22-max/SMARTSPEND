@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartspend/main.dart';
+import 'package:smartspend/services/user_data_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,6 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _wifiBackupEnabled = true;
   String _preferredCurrency = 'UGX';
   bool _settingsLoaded = false;
+  bool _hasSecurityPin = false;
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    final securityPin = await UserDataService().loadSecurityPin();
     if (!mounted) return;
 
     setState(() {
@@ -40,8 +43,354 @@ class _ProfilePageState extends State<ProfilePage> {
       _monthlyReminderEnabled = prefs.getBool(_monthlyReminderKey) ?? true;
       _wifiBackupEnabled = prefs.getBool(_wifiBackupKey) ?? true;
       _preferredCurrency = prefs.getString(_currencyKey) ?? 'UGX';
+      _hasSecurityPin = securityPin != null;
       _settingsLoaded = true;
     });
+  }
+
+  Future<void> _showPinDialog() async {
+    final pinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+    String? errorText;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                _hasSecurityPin ? 'Change 4-Digit PIN' : 'Set 4-Digit PIN',
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: pinController,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter PIN',
+                      border: OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPinController,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm PIN',
+                      border: OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                  if (_hasSecurityPin) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.pop(dialogContext, false);
+                          _showForgotPinDialog();
+                        },
+                        child: const Text(
+                          'Forgot PIN?',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final pin = pinController.text.trim();
+                    final confirmPin = confirmPinController.text.trim();
+                    if (pin.length != 4 || int.tryParse(pin) == null) {
+                      setDialogState(() {
+                        errorText = 'PIN must be exactly 4 digits';
+                      });
+                      return;
+                    }
+                    if (pin != confirmPin) {
+                      setDialogState(() {
+                        errorText = 'PINs do not match';
+                      });
+                      return;
+                    }
+                    await UserDataService().saveSecurityPin(pin);
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext, true);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pinController.dispose();
+    confirmPinController.dispose();
+
+    if (saved == true && mounted) {
+      setState(() {
+        _hasSecurityPin = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('4-digit PIN saved successfully')),
+      );
+    }
+  }
+
+  Future<void> _showForgotPinDialog() async {
+    final passwordController = TextEditingController();
+    String? errorText;
+
+    final reset = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Reset PIN'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Enter your account password to reset your PIN.'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final password = passwordController.text.trim();
+                    if (password.isEmpty) {
+                      setDialogState(() {
+                        errorText = 'Please enter your password';
+                      });
+                      return;
+                    }
+
+                    try {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user?.email == null) {
+                        setDialogState(() {
+                          errorText = 'User not found';
+                        });
+                        return;
+                      }
+
+                      // Reauthenticate with email and password
+                      final credential = EmailAuthProvider.credential(
+                        email: user!.email!,
+                        password: password,
+                      );
+                      await user.reauthenticateWithCredential(credential);
+
+                      // If successful, reset the PIN
+                      await UserDataService().saveSecurityPin('0000');
+                      if (!dialogContext.mounted) return;
+                      Navigator.pop(dialogContext, true);
+                    } on FirebaseAuthException catch (e) {
+                      setDialogState(() {
+                        errorText = e.message ?? 'Authentication failed';
+                      });
+                    } catch (e) {
+                      setDialogState(() {
+                        errorText = 'Error: $e';
+                      });
+                    }
+                  },
+                  child: const Text('Reset PIN'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    passwordController.dispose();
+
+    if (reset == true && mounted) {
+      setState(() {
+        _hasSecurityPin = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'PIN reset to default (0000). Please change it immediately.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showPasswordChangeDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    String? errorText;
+
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Change Password'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final currentPassword = currentPasswordController.text
+                        .trim();
+                    final newPassword = newPasswordController.text.trim();
+                    final confirmPassword = confirmPasswordController.text
+                        .trim();
+
+                    if (currentPassword.isEmpty ||
+                        newPassword.isEmpty ||
+                        confirmPassword.isEmpty) {
+                      setDialogState(() {
+                        errorText = 'All fields are required';
+                      });
+                      return;
+                    }
+
+                    if (newPassword.length < 6) {
+                      setDialogState(() {
+                        errorText =
+                            'New password must be at least 6 characters';
+                      });
+                      return;
+                    }
+
+                    if (newPassword != confirmPassword) {
+                      setDialogState(() {
+                        errorText = 'New passwords do not match';
+                      });
+                      return;
+                    }
+
+                    try {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user?.email == null) {
+                        setDialogState(() {
+                          errorText = 'User not found';
+                        });
+                        return;
+                      }
+
+                      // Reauthenticate with current password
+                      final credential = EmailAuthProvider.credential(
+                        email: user!.email!,
+                        password: currentPassword,
+                      );
+                      await user.reauthenticateWithCredential(credential);
+
+                      // Update password
+                      await user.updatePassword(newPassword);
+
+                      if (!dialogContext.mounted) return;
+                      Navigator.pop(dialogContext, true);
+                    } on FirebaseAuthException catch (e) {
+                      setDialogState(() {
+                        errorText = e.message ?? 'Authentication failed';
+                      });
+                    } catch (e) {
+                      setDialogState(() {
+                        errorText = 'Error: $e';
+                      });
+                    }
+                  },
+                  child: const Text('Change Password'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    currentPasswordController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
+
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully')),
+      );
+    }
   }
 
   Future<void> _saveBoolSetting(String key, bool value) async {
@@ -153,12 +502,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: const Text('Profile'),
         backgroundColor: Colors.green,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {},
-          ),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.share), onPressed: () {})],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -201,9 +545,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text(
                       'SmartSpend Account',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.black54,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
                     ),
                     const SizedBox(height: 2),
                     Align(
@@ -229,8 +573,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            if (!_settingsLoaded)
-              const LinearProgressIndicator(minHeight: 2),
+            if (!_settingsLoaded) const LinearProgressIndicator(minHeight: 2),
             SwitchListTile(
               secondary: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
               title: const Text('Dark Mode'),
@@ -241,7 +584,9 @@ class _ProfilePageState extends State<ProfilePage> {
             SwitchListTile(
               secondary: const Icon(Icons.notifications_active_outlined),
               title: const Text('Transaction Notifications'),
-              subtitle: const Text('Get alerts for bills, spending and updates'),
+              subtitle: const Text(
+                'Get alerts for bills, spending and updates',
+              ),
               value: _notificationsEnabled,
               onChanged: (value) async {
                 setState(() => _notificationsEnabled = value);
@@ -264,6 +609,24 @@ class _ProfilePageState extends State<ProfilePage> {
               subtitle: Text(_preferredCurrency),
               trailing: const Icon(Icons.chevron_right),
               onTap: _pickCurrency,
+            ),
+            ListTile(
+              leading: const Icon(Icons.pin_outlined),
+              title: Text(
+                _hasSecurityPin ? 'Change 4-Digit PIN' : 'Set 4-Digit PIN',
+              ),
+              subtitle: const Text(
+                'Required to view balance and access deposit or withdrawal',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showPinDialog,
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('Change Password'),
+              subtitle: const Text('Update your account password'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showPasswordChangeDialog,
             ),
             SwitchListTile(
               secondary: const Icon(Icons.calendar_month_outlined),

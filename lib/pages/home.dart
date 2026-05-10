@@ -17,6 +17,9 @@ class _HomePageState extends State<HomePage> {
   double _cashBalance = 0.0;
   final TransactionManager _transactionManager = TransactionManager();
   int _currentTipIndex = 0;
+  bool _hasSecurityPin = false;
+  bool _isBalanceUnlocked = false;
+  bool _pinDialogOpen = false;
   final List<String> _tipImages = const [
     'images/tip1.png',
     'images/tip2.png',
@@ -36,6 +39,26 @@ class _HomePageState extends State<HomePage> {
     await _loadCashBalance();
     // Load persisted transactions
     await _transactionManager.loadTransactions();
+    await _loadPinStatus();
+  }
+
+  Future<void> _loadPinStatus() async {
+    try {
+      final pin = await UserDataService().loadSecurityPin();
+      if (!mounted) return;
+      setState(() {
+        _hasSecurityPin = pin != null;
+        _isBalanceUnlocked = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _pinDialogOpen) return;
+        if (pin == null) {
+          _ensureMandatoryPin();
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading security pin: $e');
+    }
   }
 
   Future<void> _loadCashBalance() async {
@@ -63,6 +86,225 @@ class _HomePageState extends State<HomePage> {
     );
     await _loadCashBalance();
     await _transactionManager.loadTransactions();
+  }
+
+  Future<bool> _showCreatePinDialog({bool allowCancel = true}) async {
+    final pinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+    String? errorText;
+
+    _pinDialogOpen = true;
+    final created = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: allowCancel,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Create 4-Digit PIN'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'A 4-digit PIN is required before you can view your cash balance or access deposits and withdrawals.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter PIN',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm PIN',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  if (allowCancel)
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final pin = pinController.text.trim();
+                      final confirmPin = confirmPinController.text.trim();
+                      if (pin.length != 4 || int.tryParse(pin) == null) {
+                        setDialogState(() {
+                          errorText = 'PIN must be exactly 4 digits';
+                        });
+                        return;
+                      }
+                      if (pin != confirmPin) {
+                        setDialogState(() {
+                          errorText = 'PINs do not match';
+                        });
+                        return;
+                      }
+                      await UserDataService().saveSecurityPin(pin);
+                      if (!dialogContext.mounted) return;
+                      Navigator.pop(dialogContext, true);
+                    },
+                    child: const Text('Save PIN'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+    _pinDialogOpen = false;
+
+    pinController.dispose();
+    confirmPinController.dispose();
+
+    if (created == true && mounted) {
+      setState(() {
+        _hasSecurityPin = true;
+        _isBalanceUnlocked = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PIN created successfully')));
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<bool> _showVerifyPinDialog({
+    required String purpose,
+    bool allowCancel = true,
+  }) async {
+    final savedPin = await UserDataService().loadSecurityPin();
+    if (!mounted) return false;
+    if (savedPin == null) {
+      return _showCreatePinDialog(allowCancel: false);
+    }
+
+    final pinController = TextEditingController();
+    String? errorText;
+    _pinDialogOpen = true;
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: allowCancel,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Enter 4-Digit PIN'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Enter your PIN to $purpose.'),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'PIN',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  if (allowCancel)
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (pinController.text.trim() != savedPin) {
+                        setDialogState(() {
+                          errorText = 'Incorrect PIN';
+                        });
+                        return;
+                      }
+                      Navigator.pop(dialogContext, true);
+                    },
+                    child: const Text('Verify'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+    _pinDialogOpen = false;
+
+    pinController.dispose();
+    return verified == true;
+  }
+
+  Future<void> _toggleBalanceVisibility() async {
+    if (_isBalanceUnlocked) {
+      setState(() {
+        _isBalanceUnlocked = false;
+      });
+      return;
+    }
+
+    final verified = await _showVerifyPinDialog(
+      purpose: 'view your balance',
+      allowCancel: true,
+    );
+    if (!verified || !mounted) return;
+    setState(() {
+      _isBalanceUnlocked = true;
+    });
+  }
+
+  Future<void> _ensureMandatoryPin() async {
+    final created = await _showCreatePinDialog(allowCancel: false);
+    if (!created || !mounted) return;
+    final verified = await _showVerifyPinDialog(
+      purpose: 'view your balance',
+      allowCancel: false,
+    );
+    if (!verified || !mounted) return;
+    setState(() {
+      _isBalanceUnlocked = true;
+    });
   }
 
   Future<void> _navigateToBudget(BuildContext context) async {
@@ -204,12 +446,32 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
-                            "Cash Balance",
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 14 : 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Cash Balance',
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: _toggleBalanceVisibility,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    _hasSecurityPin
+                                        ? (_isBalanceUnlocked
+                                              ? Icons.visibility_off
+                                              : Icons.visibility)
+                                        : Icons.pin_outlined,
+                                    size: isSmallScreen ? 18 : 20,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         Expanded(
@@ -281,7 +543,9 @@ class _HomePageState extends State<HomePage> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "UGX ${_cashBalance.toStringAsFixed(2)}",
+                        _isBalanceUnlocked
+                            ? 'UGX ${_cashBalance.toStringAsFixed(2)}'
+                            : 'UGX ****',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 32 : 40,
                           fontWeight: FontWeight.bold,

@@ -87,6 +87,76 @@ class _FundsTransferPageState extends State<FundsTransferPage> {
     return 'Withdraw from SmartSpend';
   }
 
+  Future<bool> _showVerifyPinDialog({required String purpose}) async {
+    final savedPin = await UserDataService().loadSecurityPin();
+    if (!mounted) return false;
+    if (savedPin == null) return false;
+
+    final pinController = TextEditingController();
+    String? errorText;
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: true,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Enter 4-Digit PIN'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Enter your PIN to $purpose.'),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'PIN',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (pinController.text.trim() != savedPin) {
+                        setDialogState(() {
+                          errorText = 'Incorrect PIN';
+                        });
+                        return;
+                      }
+                      Navigator.pop(dialogContext, true);
+                    },
+                    child: const Text('Verify'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+    pinController.dispose();
+    return verified == true;
+  }
+
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
 
@@ -126,6 +196,14 @@ class _FundsTransferPageState extends State<FundsTransferPage> {
       );
       return;
     }
+
+    // Verify PIN before proceeding with transaction
+    final verified = await _showVerifyPinDialog(
+      purpose: _isDeposit
+          ? 'complete this deposit'
+          : 'complete this withdrawal',
+    );
+    if (!verified || !mounted) return;
 
     setState(() => _isSubmitting = true);
 

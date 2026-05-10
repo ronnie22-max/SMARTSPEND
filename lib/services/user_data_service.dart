@@ -113,6 +113,30 @@ class UserDataService {
     }
   }
 
+  // ─── Security PIN ──────────────────────────────────────────────────────────
+
+  Future<void> saveSecurityPin(String pin) async {
+    try {
+      if (pin.length != 4) return;
+      await _dataDoc?.set({'securityPin': pin}, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('UserDataService: saveSecurityPin error: $e');
+    }
+  }
+
+  Future<String?> loadSecurityPin() async {
+    try {
+      final snap = await _dataDoc?.get();
+      if (snap == null || !snap.exists) return null;
+      final pin = snap.data()?['securityPin'] as String?;
+      if (pin == null || pin.length != 4) return null;
+      return pin;
+    } catch (e) {
+      debugPrint('UserDataService: loadSecurityPin error: $e');
+      return null;
+    }
+  }
+
   // ─── Transactions ────────────────────────────────────────────────────────────
 
   Future<void> saveTransaction(TransactionRecord txn) async {
