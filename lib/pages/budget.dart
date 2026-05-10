@@ -59,9 +59,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _saveBudgetAndCash() async {
     try {
-      await UserDataService().saveBudget(
-        Map<String, double>.from(expenses),
-      );
+      await UserDataService().saveBudget(Map<String, double>.from(expenses));
       await UserDataService().saveCashBalance(_currentCashBalance);
     } catch (e) {
       debugPrint('Error saving budget: $e');
@@ -86,10 +84,152 @@ class _BudgetPageState extends State<BudgetPage> {
     'Personal': Icons.person,
   };
 
+  final List<Color> _expensePalette = const [
+    Colors.teal,
+    Colors.indigo,
+    Colors.deepOrange,
+    Colors.brown,
+    Colors.cyan,
+    Colors.amber,
+  ];
+
   double get totalExpenses => expenses.values.fold(0, (sum, val) => sum + val);
   double get remainingBalance => totalBalance - totalExpenses;
 
   double get totalBalance => _currentCashBalance + totalExpenses;
+
+  Future<void> _showAddExpenseDialog() async {
+    final categoryController = TextEditingController();
+    final amountController = TextEditingController();
+    String? errorText;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add New Expense'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: categoryController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Category name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^\d+\.?\d{0,2}'),
+                      ),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: 'UGX ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final rawCategory = categoryController.text.trim();
+                    final amount = double.tryParse(
+                      amountController.text.trim(),
+                    );
+                    final category = rawCategory
+                        .split(RegExp(r'\s+'))
+                        .where((part) => part.isNotEmpty)
+                        .map(
+                          (part) =>
+                              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+                        )
+                        .join(' ');
+
+                    if (category.isEmpty) {
+                      setDialogState(() {
+                        errorText = 'Enter a category name';
+                      });
+                      return;
+                    }
+
+                    if (expenses.containsKey(category)) {
+                      setDialogState(() {
+                        errorText = 'This category already exists';
+                      });
+                      return;
+                    }
+
+                    if (amount == null || amount <= 0) {
+                      setDialogState(() {
+                        errorText = 'Enter a valid amount';
+                      });
+                      return;
+                    }
+
+                    if (amount > _currentCashBalance) {
+                      setDialogState(() {
+                        errorText =
+                            'Amount exceeds available cash (UGX ${_currentCashBalance.toStringAsFixed(2)})';
+                      });
+                      return;
+                    }
+
+                    final color =
+                        _expensePalette[expenses.length %
+                            _expensePalette.length];
+                    final transaction = TransactionRecord(
+                      id: const Uuid().v4(),
+                      title: 'Budget Spending',
+                      category: category,
+                      icon: Icons.playlist_add,
+                      timestamp: DateTime.now(),
+                      amount: amount,
+                      type: TransactionType.budgetSpend,
+                      description: 'Allocated to $category budget',
+                      budgetRemaining: remainingBalance - amount,
+                    );
+                    _transactionManager.addTransaction(transaction);
+
+                    setState(() {
+                      expenses[category] = amount;
+                      categoryColors[category] = color;
+                      categoryIcons[category] = Icons.receipt_long;
+                      _currentCashBalance -= amount;
+                    });
+                    _saveBudgetAndCash();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Add Expense'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    categoryController.dispose();
+    amountController.dispose();
+  }
 
   void _editExpense(String category) {
     showDialog(
@@ -160,6 +300,49 @@ class _BudgetPageState extends State<BudgetPage> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _removeExpense(String category) async {
+    final amount = expenses[category] ?? 0.0;
+    if (amount <= 0) return;
+
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Remove Expense'),
+          content: Text(
+            'Remove $category and restore UGX ${amount.toStringAsFixed(2)} to cash balance?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldRemove != true || !mounted) return;
+
+    setState(() {
+      expenses[category] = 0.0;
+      _currentCashBalance += amount;
+    });
+    await _saveBudgetAndCash();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$category removed'),
+        backgroundColor: Colors.red.shade400,
+      ),
     );
   }
 
@@ -296,12 +479,63 @@ class _BudgetPageState extends State<BudgetPage> {
               SizedBox(height: screenHeight * 0.03),
 
               // Expense Categories
-              Text(
-                'Expenses by Category',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Expenses by Category',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Tooltip(
+                    message: 'Add a new expense',
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00A76F), Color(0xFF2E7D32)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withValues(alpha: 0.22),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _showAddExpenseDialog,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, color: Colors.white, size: 18),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Add',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: screenHeight * 0.02),
               ListView.builder(
@@ -317,16 +551,36 @@ class _BudgetPageState extends State<BudgetPage> {
 
                   return Padding(
                     padding: EdgeInsets.only(bottom: screenHeight * 0.012),
-                    child: GestureDetector(
-                      onTap: () => _editExpense(category),
-                      child: Container(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.92, end: 1.0),
+                      duration: Duration(milliseconds: 260 + (index * 40)),
+                      curve: Curves.easeOutBack,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.scale(scale: value, child: child),
+                        );
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
                         padding: EdgeInsets.all(screenWidth * 0.04),
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: categoryColors[category]!.withValues(alpha: 0.3),
+                            color: categoryColors[category]!.withValues(
+                              alpha: 0.45,
+                            ),
                             width: 2,
                           ),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            colors: [
+                              categoryColors[category]!.withValues(alpha: 0.13),
+                              Colors.white,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,30 +588,37 @@ class _BudgetPageState extends State<BudgetPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: categoryColors[category]!
-                                            .withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(8),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: categoryColors[category]!
+                                              .withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          categoryIcons[category],
+                                          color: categoryColors[category],
+                                          size: 20,
+                                        ),
                                       ),
-                                      child: Icon(
-                                        categoryIcons[category],
-                                        color: categoryColors[category],
-                                        size: 20,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          category,
+                                          style: TextStyle(
+                                            fontSize: isSmallScreen ? 12 : 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      category,
-                                      style: TextStyle(
-                                        fontSize: isSmallScreen ? 12 : 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 Text(
                                   'UGX ${amount.toStringAsFixed(2)}',
@@ -375,20 +636,47 @@ class _BudgetPageState extends State<BudgetPage> {
                               child: LinearProgressIndicator(
                                 value: percentage / 100,
                                 minHeight: 6,
-                                backgroundColor:
-                                    categoryColors[category]!.withValues(alpha: 0.1),
+                                backgroundColor: categoryColors[category]!
+                                    .withValues(alpha: 0.1),
                                 valueColor: AlwaysStoppedAnimation(
                                   categoryColors[category],
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${percentage.toStringAsFixed(1)}% of total budget',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Text(
+                                  '${percentage.toStringAsFixed(1)}% of total budget',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const Spacer(),
+                                Tooltip(
+                                  message: 'Edit expense',
+                                  child: IconButton(
+                                    onPressed: () => _editExpense(category),
+                                    icon: Icon(
+                                      Icons.edit_outlined,
+                                      size: 20,
+                                      color: categoryColors[category],
+                                    ),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'Remove expense',
+                                  child: IconButton(
+                                    onPressed: () => _removeExpense(category),
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      size: 20,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -397,7 +685,6 @@ class _BudgetPageState extends State<BudgetPage> {
                   );
                 },
               ),
-
             ],
           ),
         ),
@@ -405,4 +692,3 @@ class _BudgetPageState extends State<BudgetPage> {
     );
   }
 }
- 

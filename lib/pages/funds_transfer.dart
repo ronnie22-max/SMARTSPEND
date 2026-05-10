@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:smartspend/models/transaction_model.dart';
 import 'package:smartspend/services/user_data_service.dart';
 import 'package:uuid/uuid.dart';
@@ -54,13 +53,13 @@ class _FundsTransferPageState extends State<FundsTransferPage> {
   };
 
   final Map<String, String> _providerLogos = {
-    'MTN MoMo': 'images/logos/mtn_momo.svg',
-    'Airtel Money': 'images/logos/airtel_money.svg',
-    'Stanbic Bank': 'images/logos/stanbic_bank.svg',
-    'Centenary Bank': 'images/logos/centenary_bank.svg',
-    'DFCU Bank': 'images/logos/dfcu_bank.svg',
-    'Absa Bank': 'images/logos/absa_bank.svg',
-    'Equity Bank': 'images/logos/equity_bank.svg',
+    'MTN MoMo': 'images/logos/mtn_momo.jpg',
+    'Airtel Money': 'images/logos/airtel_money.jpg',
+    'Stanbic Bank': 'images/logos/stambic_bank.png',
+    'Centenary Bank': 'images/logos/centenary-bank.png',
+    'DFCU Bank': 'images/logos/dfcu-bank.png',
+    'Absa Bank': 'images/logos/absa_bank.png',
+    'Equity Bank': 'images/logos/equity_bank.jpeg',
   };
 
   @override
@@ -366,9 +365,10 @@ class _FundsTransferPageState extends State<FundsTransferPage> {
                             SizedBox(
                               width: 56,
                               height: 56,
-                              child: SvgPicture.asset(
+                              child: Image.asset(
                                 _providerLogos[provider] ??
-                                    'images/logos/mtn_momo.svg',
+                                    'images/logos/mtn_momo.jpg',
+                                fit: BoxFit.contain,
                               ),
                             ),
                             const SizedBox(height: 6),

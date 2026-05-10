@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <rect width="120" height="120" rx="24" fill="#FFCB05"/>
-  <ellipse cx="60" cy="44" rx="38" ry="18" fill="none" stroke="#1D1D1B" stroke-width="4"/>
-  <text x="60" y="50" font-size="26" font-weight="700" fill="#1D1D1B" text-anchor="middle" font-family="Arial, Helvetica, sans-serif">MTN</text>
-  <rect x="18" y="68" width="84" height="24" rx="12" fill="#1D1D1B" opacity="0.08"/>
-  <text x="60" y="85" font-size="19" font-weight="700" fill="#1D1D1B" text-anchor="middle" font-family="Arial, Helvetica, sans-serif">MoMo</text>
-</svg>

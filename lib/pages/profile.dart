@@ -409,6 +409,80 @@ class _ProfilePageState extends State<ProfilePage> {
     await prefs.setBool('dark_mode', value);
   }
 
+  Future<void> _showUsernameDialog() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final controller = TextEditingController(
+      text: user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim()
+          : (user.email?.split('@').first ?? ''),
+    );
+    String? errorText;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Change Username'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Username',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final username = controller.text.trim();
+                    if (username.length < 2) {
+                      setDialogState(() {
+                        errorText = 'Username must be at least 2 characters';
+                      });
+                      return;
+                    }
+                    await user.updateDisplayName(username);
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext, true);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (saved == true && mounted) {
+      await FirebaseAuth.instance.currentUser?.reload();
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username updated successfully')),
+      );
+    }
+  }
+
   Future<void> _confirmAndLogout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
@@ -495,10 +569,7 @@ class _ProfilePageState extends State<ProfilePage> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-            Navigator.pushNamed(context, '/home');
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Profile'),
         backgroundColor: Colors.green,
@@ -609,6 +680,13 @@ class _ProfilePageState extends State<ProfilePage> {
               subtitle: Text(_preferredCurrency),
               trailing: const Icon(Icons.chevron_right),
               onTap: _pickCurrency,
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Change Username'),
+              subtitle: Text(displayName),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showUsernameDialog,
             ),
             ListTile(
               leading: const Icon(Icons.pin_outlined),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smartspend/pages/budget.dart';
 import 'package:smartspend/pages/funds_transfer.dart';
@@ -395,10 +396,13 @@ class _HomePageState extends State<HomePage> {
     final screenHeight = screenSize.height;
     final isSmallScreen = screenWidth < 600;
     final contentWidth = screenWidth * 0.90;
-    final displayName = widget.username.trim().isEmpty
-        ? 'Guest User'
-        : widget.username.trim();
-    final avatarInitial = displayName.substring(0, 1).toUpperCase();
+    final authUser = FirebaseAuth.instance.currentUser;
+    final displayName = widget.username.trim().isNotEmpty
+        ? widget.username.trim()
+        : (authUser?.displayName?.trim() ?? '');
+    final avatarInitial = displayName.isEmpty
+        ? 'U'
+        : displayName.substring(0, 1).toUpperCase();
 
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -510,14 +514,6 @@ class _HomePageState extends State<HomePage> {
                                           CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          'Welcome back',
-                                          style: TextStyle(
-                                            fontSize: isSmallScreen ? 10 : 11,
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
                                         Text(
                                           displayName,
                                           style: TextStyle(

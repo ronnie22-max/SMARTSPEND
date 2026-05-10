@@ -14,8 +14,7 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage>
-    with TickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
@@ -44,23 +43,25 @@ class _LoginPageState extends State<LoginPage>
       vsync: this,
     );
 
-    _headerSlide = Tween<Offset>(
-      begin: const Offset(-0.3, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _headerController, curve: Curves.easeOut));
+    _headerSlide = Tween<Offset>(begin: const Offset(-0.3, 0), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _headerController, curve: Curves.easeOut),
+        );
 
-    _headerFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _headerController, curve: Curves.easeIn),
-    );
+    _headerFade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _headerController, curve: Curves.easeIn));
 
     _formSlide = Tween<Offset>(
       begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _formController, curve: Curves.easeOut));
 
-    _formFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _formController, curve: Curves.easeIn),
-    );
+    _formFade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _formController, curve: Curves.easeIn));
 
     _headerController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -104,7 +105,15 @@ class _LoginPageState extends State<LoginPage>
         password: password,
       );
       final user = credential.user;
-      final username = user?.displayName ?? user?.email ?? '';
+      final username = await _ensureUsername(user);
+      if (username == null || username.isEmpty) {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          _isLoading = false;
+          errorMessage = 'Username setup is required to continue';
+        });
+        return;
+      }
       setState(() => _isLoading = false);
       if (mounted) Navigator.pushNamed(context, '/home', arguments: username);
     } on FirebaseAuthException catch (e) {
@@ -191,6 +200,70 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  Future<String?> _ensureUsername(User? user) async {
+    if (user == null) return null;
+
+    final existing = user.displayName?.trim() ?? '';
+    if (existing.isNotEmpty) {
+      return existing;
+    }
+
+    final controller = TextEditingController();
+    String? errorText;
+    final username = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Set Username'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('A username is required to continue.'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Username',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = controller.text.trim();
+                    if (name.length < 2) {
+                      setDialogState(() {
+                        errorText = 'Enter at least 2 characters';
+                      });
+                      return;
+                    }
+                    await user.updateDisplayName(name);
+                    if (!dialogContext.mounted) return;
+                    Navigator.pop(dialogContext, name);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return username?.trim();
+  }
+
   Future<String?> _showResetEmailDialog() async {
     final resetController = TextEditingController(text: emailController.text);
 
@@ -270,7 +343,15 @@ class _LoginPageState extends State<LoginPage>
       }
 
       final user = userCredential.user;
-      final username = user?.displayName ?? user?.email ?? '';
+      final username = await _ensureUsername(user);
+      if (username == null || username.isEmpty) {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          errorMessage = 'Username setup is required to continue';
+          _isGoogleLoading = false;
+        });
+        return;
+      }
       setState(() {
         _isGoogleLoading = false;
       });
@@ -411,8 +492,13 @@ class _LoginPageState extends State<LoginPage>
                               style: const TextStyle(fontSize: 16),
                               decoration: InputDecoration(
                                 labelText: 'Email or Phone',
-                                labelStyle: TextStyle(color: Colors.grey.shade600),
-                                prefixIcon: Icon(Icons.email_outlined, color: Colors.green.shade600),
+                                labelStyle: TextStyle(
+                                  color: Colors.grey.shade600,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.email_outlined,
+                                  color: Colors.green.shade600,
+                                ),
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
                                 border: OutlineInputBorder(
@@ -421,9 +507,15 @@ class _LoginPageState extends State<LoginPage>
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: Colors.green.shade600, width: 2),
+                                  borderSide: BorderSide(
+                                    color: Colors.green.shade600,
+                                    width: 2,
+                                  ),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 18,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -435,14 +527,23 @@ class _LoginPageState extends State<LoginPage>
                               style: const TextStyle(fontSize: 16),
                               decoration: InputDecoration(
                                 labelText: 'Password',
-                                labelStyle: TextStyle(color: Colors.grey.shade600),
-                                prefixIcon: Icon(Icons.lock_outline, color: Colors.green.shade600),
+                                labelStyle: TextStyle(
+                                  color: Colors.grey.shade600,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.lock_outline,
+                                  color: Colors.green.shade600,
+                                ),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
                                     color: Colors.grey.shade500,
                                   ),
-                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                                 ),
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
@@ -452,9 +553,15 @@ class _LoginPageState extends State<LoginPage>
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: Colors.green.shade600, width: 2),
+                                  borderSide: BorderSide(
+                                    color: Colors.green.shade600,
+                                    width: 2,
+                                  ),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 18,
+                                ),
                               ),
                             ),
 
@@ -486,16 +593,25 @@ class _LoginPageState extends State<LoginPage>
                                       decoration: BoxDecoration(
                                         color: Colors.red.shade50,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.red.shade200),
+                                        border: Border.all(
+                                          color: Colors.red.shade200,
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
-                                          Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
+                                          Icon(
+                                            Icons.error_outline,
+                                            color: Colors.red.shade400,
+                                            size: 20,
+                                          ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               errorMessage,
-                                              style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+                                              style: TextStyle(
+                                                color: Colors.red.shade700,
+                                                fontSize: 14,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -509,14 +625,14 @@ class _LoginPageState extends State<LoginPage>
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed:
-                                    (_isLoading || _isGoogleLoading)
-                                        ? null
-                                        : validateLogin,
+                                onPressed: (_isLoading || _isGoogleLoading)
+                                    ? null
+                                    : validateLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green.shade600,
                                   foregroundColor: Colors.white,
-                                  disabledBackgroundColor: Colors.green.shade300,
+                                  disabledBackgroundColor:
+                                      Colors.green.shade300,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -547,9 +663,13 @@ class _LoginPageState extends State<LoginPage>
                             // OR divider
                             Row(
                               children: [
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                                Expanded(
+                                  child: Divider(color: Colors.grey.shade300),
+                                ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
                                   child: Text(
                                     'OR',
                                     style: TextStyle(
@@ -558,7 +678,9 @@ class _LoginPageState extends State<LoginPage>
                                     ),
                                   ),
                                 ),
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                                Expanded(
+                                  child: Divider(color: Colors.grey.shade300),
+                                ),
                               ],
                             ),
 
@@ -634,7 +756,10 @@ class _LoginPageState extends State<LoginPage>
                                   Navigator.pushNamed(context, '/signup');
                                 },
                                 style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: Colors.green.shade600, width: 2),
+                                  side: BorderSide(
+                                    color: Colors.green.shade600,
+                                    width: 2,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),

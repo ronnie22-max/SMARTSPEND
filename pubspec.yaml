@@ -101,13 +101,13 @@ flutter:
     - images/logo.png
     - images/lg.png
     - images/google_logo.svg
-    - images/logos/mtn_momo.svg
-    - images/logos/airtel_money.svg
-    - images/logos/stanbic_bank.svg
-    - images/logos/centenary_bank.svg
-    - images/logos/dfcu_bank.svg
-    - images/logos/absa_bank.svg
-    - images/logos/equity_bank.svg
+    - images/logos/mtn_momo.jpg
+    - images/logos/airtel_money.jpg
+    - images/logos/stambic_bank.png
+    - images/logos/centenary-bank.png
+    - images/logos/dfcu-bank.png
+    - images/logos/absa_bank.png
+    - images/logos/equity_bank.jpeg
   
 
   # An image asset can refer to one or more resolution-specific "variants", see
