@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:smartspend/services/user_data_service.dart';
 
 enum TransactionType { income, expense, deposit, withdrawal, budgetSpend }
 
@@ -103,18 +102,17 @@ class TransactionManager {
   TransactionManager._internal();
 
   final List<TransactionRecord> _transactions = [];
-  static const String _storageKey = 'smartspend_transactions';
 
   List<TransactionRecord> get transactions => List.unmodifiable(_transactions);
 
   void addTransaction(TransactionRecord transaction) {
     _transactions.insert(0, transaction);
-    saveTransactions();
+    UserDataService().saveTransaction(transaction);
   }
 
   void removeTransaction(String transactionId) {
     _transactions.removeWhere((txn) => txn.id == transactionId);
-    saveTransactions();
+    UserDataService().deleteTransaction(transactionId);
   }
 
   Map<String, List<TransactionRecord>> getTransactionsByDate() {
@@ -135,30 +133,15 @@ class TransactionManager {
         .fold(0, (sum, txn) => sum + txn.amount);
   }
 
-  void clearTransactions() {
+  Future<void> clearTransactions() async {
     _transactions.clear();
-    saveTransactions();
+    await UserDataService().deleteAllTransactions();
   }
 
-  // Save transactions to SharedPreferences
-  Future<void> saveTransactions() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = _transactions.map((txn) => jsonEncode(txn.toJson())).toList();
-      await prefs.setStringList(_storageKey, jsonList);
-    } catch (e) {
-      debugPrint('Error saving transactions: $e');
-    }
-  }
-
-  // Load transactions from SharedPreferences
+  // Load transactions from Firestore
   Future<void> loadTransactions() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = prefs.getStringList(_storageKey) ?? [];
-      final loaded = jsonList
-          .map((jsonStr) => TransactionRecord.fromJson(jsonDecode(jsonStr)))
-          .toList();
+      final loaded = await UserDataService().loadTransactions();
       _transactions
         ..clear()
         ..addAll(loaded);

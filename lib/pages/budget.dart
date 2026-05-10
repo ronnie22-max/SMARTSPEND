@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartspend/models/transaction_model.dart';
+import 'package:smartspend/services/user_data_service.dart';
 import 'package:uuid/uuid.dart';
 
 class BudgetPage extends StatefulWidget {
@@ -24,8 +23,6 @@ class _BudgetPageState extends State<BudgetPage> {
   };
 
   final TransactionManager _transactionManager = TransactionManager();
-  static const String _budgetKey = 'smartspend_budget';
-  static const String _cashBalanceKey = 'smartspend_cash_balance';
   double _currentCashBalance = 0.0;
 
   @override
@@ -36,21 +33,20 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _loadBudgetAndCash() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final cachedBalance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
-      _currentCashBalance = widget.totalBalance > 0 ? widget.totalBalance : cachedBalance;
+      final remoteCash = await UserDataService().loadCashBalance();
+      _currentCashBalance = widget.totalBalance > 0
+          ? widget.totalBalance
+          : (remoteCash ?? 0.0);
 
-      if (widget.totalBalance > 0 && widget.totalBalance != cachedBalance) {
-        await prefs.setDouble(_cashBalanceKey, widget.totalBalance);
+      if (widget.totalBalance > 0) {
+        await UserDataService().saveCashBalance(widget.totalBalance);
       }
 
-      final budgetJson = prefs.getString(_budgetKey);
-      if (budgetJson != null) {
-        final Map<String, dynamic> decoded =
-            Map<String, dynamic>.from(jsonDecode(budgetJson));
+      final remoteBudget = await UserDataService().loadBudget();
+      if (remoteBudget != null) {
         setState(() {
           expenses.forEach((key, _) {
-            expenses[key] = (decoded[key] as num?)?.toDouble() ?? 0.0;
+            expenses[key] = remoteBudget[key] ?? 0.0;
           });
         });
       } else {
@@ -63,9 +59,10 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _saveBudgetAndCash() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_budgetKey, jsonEncode(expenses));
-      await prefs.setDouble(_cashBalanceKey, _currentCashBalance);
+      await UserDataService().saveBudget(
+        Map<String, double>.from(expenses),
+      );
+      await UserDataService().saveCashBalance(_currentCashBalance);
     } catch (e) {
       debugPrint('Error saving budget: $e');
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smartspend/models/transaction_model.dart';
+import 'package:smartspend/services/user_data_service.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -10,42 +11,27 @@ class TransactionsPage extends StatefulWidget {
 
 class _TransactionsPageState extends State<TransactionsPage> {
   final TransactionManager _transactionManager = TransactionManager();
-  Map<String, List<TransactionRecord>> _groupedTransactions = {};
+  final UserDataService _userDataService = UserDataService();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadTransactions();
-  }
-
-  Future<void> _loadTransactions() async {
-    await _transactionManager.loadTransactions();
-    _updateTransactions();
-  }
-
-  void _updateTransactions() {
-    setState(() {
-      _groupedTransactions = _transactionManager.getTransactionsByDate();
-    });
-  }
-
-  void _clearAllTransactions() {
+  Future<void> _clearAllTransactions() async {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Clear All Transactions?'),
-          content: const Text('This will delete all transactions. This action cannot be undone.'),
+          content: const Text(
+            'This will delete all transactions. This action cannot be undone.',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                _transactionManager.clearTransactions();
-                _updateTransactions();
-                Navigator.pop(context);
+              onPressed: () async {
+                await _transactionManager.clearTransactions();
+                if (!dialogContext.mounted || !mounted) return;
+                Navigator.pop(dialogContext);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('All transactions cleared'),
@@ -54,7 +40,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   ),
                 );
               },
-              child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+              child: const Text(
+                'Clear All',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           ],
         );
@@ -62,112 +51,169 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
   }
 
+  Map<String, List<TransactionRecord>> _groupByDate(
+    List<TransactionRecord> transactions,
+  ) {
+    final grouped = <String, List<TransactionRecord>>{};
+    for (final txn in transactions) {
+      grouped.putIfAbsent(txn.formattedDate, () => []).add(txn);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-    backgroundColor: Colors.green[300],
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 0, 0, 0)),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/home');
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    const Text("Transactions",
-                        style:
-                            TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                if (_groupedTransactions.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.delete_sweep, color: Colors.red),
-                    tooltip: 'Clear all transactions',
-                    onPressed: _clearAllTransactions,
-                  ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Search bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey[200]),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: "Search",
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Filter chip
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: const [
-                  Icon(Icons.filter_alt_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text("All accounts"),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-            
-            Expanded(
-              child: _groupedTransactions.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No transactions yet',
+      backgroundColor: Colors.green[300],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/home');
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        "Transactions",
                         style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    )
-                  : ListView(
-                      children: _groupedTransactions.entries.map((entry) {
+                    ],
+                  ),
+                  StreamBuilder<List<TransactionRecord>>(
+                    stream: _userDataService.watchTransactions(),
+                    builder: (context, snapshot) {
+                      final transactions =
+                          snapshot.data ?? const <TransactionRecord>[];
+                      if (transactions.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return IconButton(
+                        icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                        tooltip: 'Clear all transactions',
+                        onPressed: _clearAllTransactions,
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Search bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey[200],
+                ),
+                child: const TextField(
+                  decoration: InputDecoration(
+                    hintText: "Search",
+                    border: InputBorder.none,
+                    icon: Icon(Icons.search),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              // Filter chip
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.filter_alt_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text("All accounts"),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              Expanded(
+                child: StreamBuilder<List<TransactionRecord>>(
+                  stream: _userDataService.watchTransactions(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Could not load transactions',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final transactions =
+                        snapshot.data ?? const <TransactionRecord>[];
+                    final groupedTransactions = _groupByDate(transactions);
+
+                    if (groupedTransactions.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No transactions yet',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView(
+                      children: groupedTransactions.entries.map((entry) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               entry.key,
                               style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             const SizedBox(height: 10),
-                            ...entry.value.map((txn) {
-                              return _transactionItem(txn);
-                            }),
+                            ...entry.value.map(_transactionItem),
                             const SizedBox(height: 20),
                           ],
                         );
                       }).toList(),
-                    ),
-            ),
-          ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -187,7 +233,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
       ),
       onDismissed: (direction) {
         _transactionManager.removeTransaction(txn.id);
-        _updateTransactions();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Transaction deleted'),
@@ -223,10 +268,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
               if (txn.description != null)
                 Text(
                   txn.description!,
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                 ),
             ],
           ),
@@ -243,10 +285,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
               ),
               Text(
                 txn.typeLabel,
-                style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
               ),
             ],
           ),
@@ -255,4 +294,3 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
   }
 }
- 

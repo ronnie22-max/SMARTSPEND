@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartspend/models/transaction_model.dart';
 import 'package:smartspend/services/user_data_service.dart';
 import 'package:uuid/uuid.dart';
@@ -220,8 +219,6 @@ class _BillPaymentPageState extends State<BillPaymentPage> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TransactionManager _transactionManager = TransactionManager();
-  static const String _cashBalanceKey = 'smartspend_cash_balance';
-  static const String _cashUpdatedAtKey = 'smartspend_cash_updated_at_ms';
   bool _isSubmitting = false;
   double _currentCashBalance = 0.0;
 
@@ -234,22 +231,7 @@ class _BillPaymentPageState extends State<BillPaymentPage> {
 
   Future<void> _loadCashBalance() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final localBalance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
-      final localUpdatedAt = prefs.getInt(_cashUpdatedAtKey) ?? 0;
-
-      final remoteData = await UserDataService().loadCashBalanceData();
-      final remoteBalance = (remoteData?['cashBalance'] as num?)?.toDouble();
-      final remoteUpdatedAt = (remoteData?['cashUpdatedAtMs'] as num?)?.toInt() ?? 0;
-
-      final useRemote = remoteBalance != null && remoteUpdatedAt > localUpdatedAt;
-      final balance = useRemote ? remoteBalance : localBalance;
-
-      if (useRemote && balance != null) {
-        await prefs.setDouble(_cashBalanceKey, balance);
-        await prefs.setInt(_cashUpdatedAtKey, remoteUpdatedAt);
-      }
-
+      final balance = await UserDataService().loadCashBalance();
       if (mounted) {
         setState(() => _currentCashBalance = balance ?? 0.0);
       }
@@ -260,10 +242,6 @@ class _BillPaymentPageState extends State<BillPaymentPage> {
 
   Future<void> _saveCashBalance() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setDouble(_cashBalanceKey, _currentCashBalance);
-      await prefs.setInt(_cashUpdatedAtKey, now);
       await UserDataService().saveCashBalance(_currentCashBalance);
     } catch (e) {
       debugPrint('Error saving bill payment balance: $e');

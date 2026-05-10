@@ -22,13 +22,23 @@ class UserDataService {
 
   DocumentReference<Map<String, dynamic>>? get _dataDoc {
     final uid = _uid;
-    if (uid == null) return null;
+    if (uid == null) {
+      debugPrint(
+        'UserDataService: WARNING – no authenticated user, Firestore write skipped',
+      );
+      return null;
+    }
     return _db.collection('users').doc(uid).collection('data').doc('main');
   }
 
   CollectionReference<Map<String, dynamic>>? get _txnCol {
     final uid = _uid;
-    if (uid == null) return null;
+    if (uid == null) {
+      debugPrint(
+        'UserDataService: WARNING – no authenticated user, Firestore write skipped',
+      );
+      return null;
+    }
     return _db.collection('users').doc(uid).collection('transactions');
   }
 
@@ -36,11 +46,15 @@ class UserDataService {
 
   Future<void> saveCashBalance(double balance) async {
     try {
+      final doc = _dataDoc;
+      if (doc == null) return;
       final now = DateTime.now().millisecondsSinceEpoch;
-      await _dataDoc?.set({
+      debugPrint('UserDataService: saveCashBalance uid=$_uid balance=$balance');
+      await doc.set({
         'cashBalance': balance,
         'cashUpdatedAtMs': now,
       }, SetOptions(merge: true));
+      debugPrint('UserDataService: saveCashBalance OK');
     } catch (e) {
       debugPrint('UserDataService: saveCashBalance error: $e');
     }
@@ -103,7 +117,11 @@ class UserDataService {
 
   Future<void> saveTransaction(TransactionRecord txn) async {
     try {
-      await _txnCol?.doc(txn.id).set(txn.toJson());
+      final col = _txnCol;
+      if (col == null) return;
+      debugPrint('UserDataService: saveTransaction uid=$_uid id=${txn.id}');
+      await col.doc(txn.id).set(txn.toJson());
+      debugPrint('UserDataService: saveTransaction OK');
     } catch (e) {
       debugPrint('UserDataService: saveTransaction error: $e');
     }
@@ -144,5 +162,24 @@ class UserDataService {
       debugPrint('UserDataService: loadTransactions error: $e');
       return [];
     }
+  }
+
+  Stream<List<TransactionRecord>> watchTransactions() {
+    final col = _txnCol;
+    if (col == null) {
+      return Stream.value(<TransactionRecord>[]);
+    }
+
+    return col.orderBy('timestamp', descending: true).snapshots().map((snap) {
+      final transactions = <TransactionRecord>[];
+      for (final doc in snap.docs) {
+        try {
+          transactions.add(TransactionRecord.fromJson(doc.data()));
+        } catch (e) {
+          debugPrint('UserDataService: watchTransactions parse error: $e');
+        }
+      }
+      return transactions;
+    });
   }
 }

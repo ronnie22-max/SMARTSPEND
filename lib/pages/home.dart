@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smartspend/pages/cash.dart';
 import 'package:smartspend/pages/budget.dart';
+import 'package:smartspend/pages/funds_transfer.dart';
 import 'package:smartspend/models/transaction_model.dart';
-import 'package:uuid/uuid.dart';
-
+import 'package:smartspend/services/user_data_service.dart';
 
 class HomePage extends StatefulWidget {
   final String username;
@@ -18,7 +16,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   double _cashBalance = 0.0;
   final TransactionManager _transactionManager = TransactionManager();
-  static const String _cashBalanceKey = 'smartspend_cash_balance';
   int _currentTipIndex = 0;
   final List<String> _tipImages = const [
     'images/tip1.png',
@@ -43,11 +40,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadCashBalance() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final balance = prefs.getDouble(_cashBalanceKey) ?? 0.0;
+      final balance = await UserDataService().loadCashBalance();
       if (mounted) {
         setState(() {
-          _cashBalance = balance;
+          _cashBalance = balance ?? 0.0;
         });
       }
     } catch (e) {
@@ -55,27 +51,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _saveCashBalance() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_cashBalanceKey, _cashBalance);
-    } catch (e) {
-      debugPrint('Error saving cash balance: $e');
-    }
-  }
-
-  void _addCash(double amount) {
-    setState(() {
-      _cashBalance += amount;
-    });
-    _saveCashBalance();
-  }
-
-  Future<void> _navigateToCashPage() async {
+  Future<void> _openFundsTransfer({required bool isDeposit}) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CashPage(onAddCash: _addCash),
+        builder: (context) => FundsTransferPage(
+          isDeposit: isDeposit,
+          initialBalance: _cashBalance,
+        ),
       ),
     );
     await _loadCashBalance();
@@ -96,40 +79,6 @@ class _HomePageState extends State<HomePage> {
     await Navigator.pushNamed(context, '/bills');
     await _loadCashBalance();
     await _transactionManager.loadTransactions();
-  }
-
-  void _cashOut(double amount) {
-    if (_cashBalance >= amount) {
-      // Record withdrawal transaction
-      final transaction = TransactionRecord(
-        id: const Uuid().v4(),
-        title: 'Cash Withdrawal',
-        category: 'Withdrawal',
-        icon: Icons.arrow_upward,
-        timestamp: DateTime.now(),
-        amount: amount,
-        type: TransactionType.withdrawal,
-        description: 'Cash withdrawn from account',
-      );
-      _transactionManager.addTransaction(transaction);
-
-      setState(() {
-        _cashBalance -= amount;
-      });
-      _saveCashBalance();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✓ Withdrawn UGX ${amount.toStringAsFixed(2)}'),
-          backgroundColor: Colors.blue,
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insufficient balance')),
-      );
-    }
   }
 
   void _openMoreOptions() {
@@ -204,53 +153,50 @@ class _HomePageState extends State<HomePage> {
     final screenHeight = screenSize.height;
     final isSmallScreen = screenWidth < 600;
     final contentWidth = screenWidth * 0.90;
-    final displayName = widget.username.trim().isEmpty ? 'Guest User' : widget.username.trim();
+    final displayName = widget.username.trim().isEmpty
+        ? 'Guest User'
+        : widget.username.trim();
     final avatarInitial = displayName.substring(0, 1).toUpperCase();
-    
+
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text('SmartSpend',
+        title: Text(
+          'SmartSpend',
           style: TextStyle(
             fontSize: isSmallScreen ? 18 : 22,
             fontWeight: FontWeight.bold,
           ),
         ),
-         actions: [
-            IconButton(
-               icon: const Icon(Icons.search),
-               onPressed: (){},
-               ),
+        actions: [
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
 
-               IconButton(
-               icon: const Icon(Icons.person),
-               onPressed: (){
-                  Navigator.pushNamed(context, '/profile');
-               },
-               ),
-           ],
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.pushNamed(context, '/profile');
+            },
+          ),
+        ],
       ),
 
-      
-      
-      
       body: SingleChildScrollView(
         child: SizedBox(
           width: screenWidth,
           child: Column(
-          children: [
-            Container(
-              margin: EdgeInsets.symmetric(
-                horizontal: screenWidth * 0.05,
-                vertical: screenHeight * 0.02,
-              ),
-              padding: EdgeInsets.all(contentWidth * 0.05),
-              width: contentWidth,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(24),
-              ),
+            children: [
+              Container(
+                margin: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.05,
+                  vertical: screenHeight * 0.02,
+                ),
+                padding: EdgeInsets.all(contentWidth * 0.05),
+                width: contentWidth,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(24),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -261,8 +207,9 @@ class _HomePageState extends State<HomePage> {
                           child: Text(
                             "Cash Balance",
                             style: TextStyle(
-                                fontSize: isSmallScreen ? 14 : 16,
-                                fontWeight: FontWeight.w600),
+                              fontSize: isSmallScreen ? 14 : 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -277,7 +224,9 @@ class _HomePageState extends State<HomePage> {
                                 children: [
                                   CircleAvatar(
                                     radius: isSmallScreen ? 15 : 17,
-                                    backgroundColor: Colors.green.withValues(alpha: 0.2),
+                                    backgroundColor: Colors.green.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     child: Text(
                                       avatarInitial,
                                       style: TextStyle(
@@ -295,7 +244,8 @@ class _HomePageState extends State<HomePage> {
                                           : screenWidth * 0.22,
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
@@ -343,10 +293,10 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: _navigateToCashPage,
+                            onTap: () => _openFundsTransfer(isDeposit: true),
                             child: Container(
                               padding: EdgeInsets.symmetric(
-                                vertical: screenHeight * 0.015
+                                vertical: screenHeight * 0.015,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.blue,
@@ -368,11 +318,11 @@ class _HomePageState extends State<HomePage> {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              _cashOut(500);
+                              _openFundsTransfer(isDeposit: false);
                             },
                             child: Container(
                               padding: EdgeInsets.symmetric(
-                                vertical: screenHeight * 0.015
+                                vertical: screenHeight * 0.015,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.green,
@@ -419,18 +369,26 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildAction(Icons.money, 'Send money', null),
                     _buildAction(Icons.save, 'save', null),
-                    _buildAction(Icons.phone_android, 'Deposit', null),
                     _buildAction(
-                      Icons.receipt_long,
-                      'Bills',
-                      _navigateToBills,
+                      Icons.phone_android,
+                      'Deposit',
+                      () => _openFundsTransfer(isDeposit: true),
                     ),
-                    _buildAction(Icons.pie_chart, 'Budget', () => _navigateToBudget(context)),
-                    _buildAction(Icons.account_balance, 'Withdraw', null),
+                    _buildAction(Icons.receipt_long, 'Bills', _navigateToBills),
+                    _buildAction(
+                      Icons.pie_chart,
+                      'Budget',
+                      () => _navigateToBudget(context),
+                    ),
+                    _buildAction(
+                      Icons.account_balance,
+                      'Withdraw',
+                      () => _openFundsTransfer(isDeposit: false),
+                    ),
                   ],
                 ),
               ),
-                SizedBox(height: screenHeight * 0.02),
+              SizedBox(height: screenHeight * 0.02),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
                 child: Text(
@@ -498,10 +456,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        ),
-      
-      
-      
+      ),
 
       bottomNavigationBar: NavigationBar(
         destinations: [
@@ -518,7 +473,6 @@ class _HomePageState extends State<HomePage> {
           } else if (index == 3) {
             Navigator.pushNamed(context, '/profile');
           }
-          
         },
       ),
     );
